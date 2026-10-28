@@ -1,0 +1,85 @@
+# F2: Redpanda + Redpanda Console + collector. Todo local, costo cero.
+#   docker compose up --build
+# Console: http://localhost:8080 · collector: http://localhost:8000/health · Kafka desde el host: localhost:19092
+
+name: backrooms
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.6
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=warn
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:${REDPANDA_KAFKA_PORT:-19092}
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+    ports:
+      - "${REDPANDA_KAFKA_PORT:-19092}:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Crea los tópicos una vez (si ya existen, no hace nada) y termina.
+  redpanda-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.6
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for spec in "${TOPIC:-backrooms.eventos}:3" "${DLQ_TOPIC:-backrooms.eventos.dlq}:1"; do
+          t=$${spec%%:*}; p=$${spec##*:}
+          rpk topic describe "$$t" -X brokers=redpanda:9092 >/dev/null 2>&1 \
+            || rpk topic create "$$t" -p "$$p" -r 1 -X brokers=redpanda:9092
+        done
+        rpk topic list -X brokers=redpanda:9092
+
+  console:
+    image: docker.redpanda.com/redpandadata/console:v3.13.1
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c", "echo \"$$CONSOLE_CONFIG_FILE\" > /tmp/config.yml && /app/console"]
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda:9092"]
+        redpanda:
+          adminApi:
+            enabled: true
+            urls: ["http://redpanda:9644"]
+    ports:
+      - "${CONSOLE_PORT:-8080}:8080"
+
+  collector:
+    build:
+      context: .
+      dockerfile: collector/Dockerfile
+    depends_on:
+      redpanda-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      TOPIC: ${TOPIC:-backrooms.eventos}
+      DLQ_TOPIC: ${DLQ_TOPIC:-backrooms.eventos.dlq}
+    ports:
+      - "${COLLECTOR_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  redpanda-data:
