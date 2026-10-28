@@ -99,6 +99,11 @@ necesarios en el port: meter `seed` en `Mix`, reemplazar el LCG de 48 bits por u
 **Qué se puede reutilizar y cómo**: `hearing.ts` y `director.ts` como punto de partida de La Interferencia
 (adaptados, con aviso MIT). El patrón de tests de determinismo. El multijugador y PartyKit no: no son parte del alcance.
 
+> Nota (F1c, 2026-10-28): en la F0 no se registró que liminal tiene **cuatro niveles** (Lobby, Warehouse, Poolrooms,
+> Dead Mall). Se revisó `party/src/levels.ts`: es solo una tabla de nombre + regla de la criatura por nivel; la
+> geometría la arma su propio generador, que no es compatible con `world/`. No hay código para reutilizar en los
+> niveles; el Nivel 1 se armó con el mismo `world/` y otros parámetros (`world/levels.ts`).
+
 ---
 
 ## 3. pablostanley/vackrooms

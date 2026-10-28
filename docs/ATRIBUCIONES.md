@@ -49,6 +49,10 @@ Pendiente: escribirle a Thomas DiModica para contarle que el generador del juego
 | Elemento del juego | Página fuente | Licencia |
 |---|---|---|
 | Nivel 0 (concepto general) | https://backrooms-wiki.wikidot.com/level-0 | CC BY-SA 3.0 |
+| Nivel 1 "Habitable Zone": salones amplios de concreto con pilares unidos por pasillos estrechos, charcos, caños en el techo, luz artificial escasa con cortes, ruidos en las cañerías; se llega desde el Nivel 0 haciendo noclip por una pared (`world/levels.ts`, `game/themes.ts`) | https://backrooms-wiki.wikidot.com/level-1 (autores: Praetor3005 y DivineAtlas; concepto original de EnderMitten; artículo original de u/ThePizzaEater1000; reescritura previa de etoisle) | CC BY-SA 3.0 |
+
+Del Nivel 1 se toma la descripción como guía de diseño; no se copia texto ni imágenes ni música de la página (que
+tienen licencias propias). Geometría, texturas y sonido son propios.
 
 ## Repos de referencia (se estudian, no se copia código)
 
