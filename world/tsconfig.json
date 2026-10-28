@@ -1,0 +1,10 @@
+{
+  // world/ es puro: sin DOM ni Three. Este tsconfig lo hace cumplir (lib sin DOM).
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    "types": []
+  },
+  "include": ["."],
+  "exclude": ["*.test.ts"]
+}
