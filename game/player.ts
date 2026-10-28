@@ -19,10 +19,11 @@ const NEIGHBOR: ReadonlyArray<[number, number, Dir]> = [
   [0, 1, Dir.S],
 ];
 
-export interface Crossing {
-  /** +1 sube de capa, -1 baja. */
-  dz: 1 | -1;
-}
+/** Medio lado de un pilar, en metros. */
+export const PILLAR_HALF = 0.24;
+
+/** Puerta de capa (+1 sube, -1 baja) o noclip a otro nivel. */
+export type Crossing = { kind: 'door'; dz: 1 | -1 } | { kind: 'noclip' };
 
 export class Player {
   yaw = 0;
@@ -87,18 +88,20 @@ export class Player {
     return crossing;
   }
 
-  // ¿El centro pasó a la celda vecina a través de una puerta de capa?
+  // ¿El centro pasó a la celda vecina a través de una puerta de capa o de una pared de noclip?
   private crossed(before: { rx: number; ry: number }): Crossing | null {
     const { rx, ry } = this.cell;
     for (const [dx, dy, dir] of NEIGHBOR) {
       if (rx - before.rx !== dx || ry - before.ry !== dy) continue;
       const edge = this.level.edge(before.rx, before.ry, dir);
-      if (isPortal(edge)) return { dz: edge === Edge.DOOR_UP ? 1 : -1 };
+      if (isPortal(edge)) return { kind: 'door', dz: edge === Edge.DOOR_UP ? 1 : -1 };
+      if (edge === Edge.WALL && this.level.noclip(before.rx, before.ry, dir)) return { kind: 'noclip' };
     }
     return null;
   }
 
   // Empuja al jugador fuera de cada pared (caja delgada sobre el borde) de las 3×3 celdas que lo rodean.
+  // Las paredes de noclip no frenan: el jugador se mete en ellas.
   private collide(): void {
     const { rx, ry } = this.cell;
     const t = WALL_T / 2;
@@ -116,13 +119,18 @@ export class Player {
         if (isPortal(e)) {
           this.pushOut(x1 - t, x1 + t, z0 - t, mz - d);
           this.pushOut(x1 - t, x1 + t, mz + d, z1 + t);
-        } else if (!isOpen(e)) this.pushOut(x1 - t, x1 + t, z0 - t, z1 + t);
+        } else if (!isOpen(e) && !this.level.noclip(cx, cy, Dir.E)) this.pushOut(x1 - t, x1 + t, z0 - t, z1 + t);
         const s = this.level.edge(cx, cy, Dir.S);
         if (isPortal(s)) {
           this.pushOut(x0 - t, mx - d, z1 - t, z1 + t);
           this.pushOut(mx + d, x1 + t, z1 - t, z1 + t);
-        } else if (!isOpen(s)) this.pushOut(x0 - t, x1 + t, z1 - t, z1 + t);
+        } else if (!isOpen(s) && !this.level.noclip(cx, cy, Dir.S)) this.pushOut(x0 - t, x1 + t, z1 - t, z1 + t);
       }
+    // Pilares en las esquinas (la esquina superior izquierda de cada celda), incluida la fila y columna siguiente.
+    const p = PILLAR_HALF;
+    for (let cy = ry - 1; cy <= ry + 2; cy++)
+      for (let cx = rx - 1; cx <= rx + 2; cx++)
+        if (this.level.pillar(cx, cy)) this.pushOut(cx * CELL - p, cx * CELL + p, cy * CELL - p, cy * CELL + p);
   }
 
   private pushOut(x0: number, x1: number, z0: number, z1: number): void {

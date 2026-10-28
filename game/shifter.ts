@@ -50,14 +50,15 @@ export class Shifter {
     const options = [0, ...SHIFT_LAYERS].map((d) => (this.level.z + d) >>> 0).filter((l) => l !== from);
     const to = options[Math.floor(Math.random() * options.length)];
     const z = this.level.z;
+    const levelNo = this.level.levelNo;
 
     // La zona de la otra capa puede no estar cargada: se pide al worker y se aplica al llegar,
     // si para entonces el bloque sigue fuera de vista y no cambiamos de capa.
     this.busy = true;
     const [[zx, zy]] = this.level.chunkZones(cx, cy);
-    void this.loader.load(zx, zy, to).then(() => {
+    void this.loader.load(zx, zy, to, levelNo).then(() => {
       this.busy = false;
-      if (this.level.z !== z || this.level.layerOf(cx, cy) !== from) return;
+      if (this.level.z !== z || this.level.levelNo !== levelNo || this.level.layerOf(cx, cy) !== from) return;
       this.camera.updateMatrixWorld();
       if (!this.hidden(cx, cy, this.camera.position.x, this.camera.position.z)) return;
       this.level.setLayer(cx, cy, to);

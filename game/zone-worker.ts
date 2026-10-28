@@ -7,10 +7,11 @@ export interface ZoneRequest {
   x: number;
   y: number;
   z: number;
+  level: number;
 }
 
 self.onmessage = (e: MessageEvent<ZoneRequest>) => {
-  const { seed, x, y, z } = e.data;
-  const zone = generateZone(seed, x, y, z);
+  const { seed, x, y, z, level } = e.data;
+  const zone = generateZone(seed, x, y, z, level);
   (self as unknown as Worker).postMessage(zone, [zone.edges.buffer]);
 };

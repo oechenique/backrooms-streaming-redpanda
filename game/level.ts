@@ -33,19 +33,42 @@ export class Level {
     startGy: number,
     /** Capa actual. Cambia al cruzar una puerta. */
     public z: number,
+    /** Nivel de los Backrooms (0, 1…). Cambia al hacer noclip. */
+    public levelNo = 0,
   ) {
     this.originGx = startGx - (startGx % ZONE_SIZE);
     this.originGy = startGy - (startGy % ZONE_SIZE);
   }
 
   edge(rx: number, ry: number, dir: Dir): Edge {
+    return this.world.edge(this.originGx + rx, this.originGy + ry, this.layerOfEdge(rx, ry, dir), dir, this.levelNo);
+  }
+
+  /** ¿Esta pared deja hacer noclip? */
+  noclip(rx: number, ry: number, dir: Dir): boolean {
+    return this.world.noclip(this.originGx + rx, this.originGy + ry, this.layerOfEdge(rx, ry, dir), dir, this.levelNo);
+  }
+
+  /** ¿Hay un pilar en la esquina superior izquierda de la celda? Pide además que los cuatro bordes que llegan a la
+   *  esquina estén abiertos tal como se ven ahora (un bloque cambiado puede haber cerrado alguno). */
+  pillar(rx: number, ry: number): boolean {
+    if (!this.world.pillar(this.originGx + rx, this.originGy + ry, this.z, this.levelNo)) return false;
+    return (
+      this.edge(rx - 1, ry - 1, Dir.E) === Edge.OPEN &&
+      this.edge(rx - 1, ry, Dir.E) === Edge.OPEN &&
+      this.edge(rx - 1, ry - 1, Dir.S) === Edge.OPEN &&
+      this.edge(rx, ry - 1, Dir.S) === Edge.OPEN
+    );
+  }
+
+  // Capa de la que sale un borde: la actual en los bordes de bloque, la del bloque en su interior.
+  private layerOfEdge(rx: number, ry: number, dir: Dir): number {
     // El dueño de un borde es la celda de la que es lado E o S.
     const ox = dir === Dir.W ? rx - 1 : rx;
     const oy = dir === Dir.N ? ry - 1 : ry;
     const vertical = dir === Dir.W || dir === Dir.E;
     const onBorder = vertical ? mod(ox, CHUNK) === CHUNK - 1 : mod(oy, CHUNK) === CHUNK - 1;
-    const layer = onBorder ? this.z : this.layerOf(Math.floor(ox / CHUNK), Math.floor(oy / CHUNK));
-    return this.world.edge(this.originGx + rx, this.originGy + ry, layer, dir);
+    return onBorder ? this.z : this.layerOf(Math.floor(ox / CHUNK), Math.floor(oy / CHUNK));
   }
 
   /** ¿Se puede caminar de la celda al vecino sin cruzar una puerta de capa? */
@@ -70,12 +93,26 @@ export class Level {
     this.shifted.clear();
   }
 
-  /** Zona y capas que hacen falta para dibujar el bloque (cx, cy). */
-  chunkZones(cx: number, cy: number): Array<[number, number, number]> {
-    const zx = Math.floor((this.originGx + cx * CHUNK) / ZONE_SIZE);
-    const zy = Math.floor((this.originGy + cy * CHUNK) / ZONE_SIZE);
+  /** Pasa a otro nivel (noclip), en la misma capa y la misma posición global. */
+  enterLevel(levelNo: number): void {
+    this.levelNo = levelNo;
+    this.enterLayer(this.z);
+  }
+
+  /** Zonas (x, y, capa, nivel) que hacen falta para dibujar el bloque (cx, cy). Los pilares de la primera fila y
+   *  columna miran la celda vecina, así que puede hacer falta la zona de al lado. */
+  chunkZones(cx: number, cy: number): Array<[number, number, number, number]> {
+    const gx = this.originGx + cx * CHUNK;
+    const gy = this.originGy + cy * CHUNK;
+    const zx = Math.floor(gx / ZONE_SIZE);
+    const zy = Math.floor(gy / ZONE_SIZE);
+    const out: Array<[number, number, number, number]> = [[zx, zy, this.z, this.levelNo]];
     const layer = this.layerOf(cx, cy);
-    return layer === this.z ? [[zx, zy, this.z]] : [[zx, zy, this.z], [zx, zy, layer]];
+    if (layer !== this.z) out.push([zx, zy, layer, this.levelNo]);
+    if (gx % ZONE_SIZE === 0) out.push([zx - 1, zy, this.z, this.levelNo]);
+    if (gy % ZONE_SIZE === 0) out.push([zx, zy - 1, this.z, this.levelNo]);
+    if (gx % ZONE_SIZE === 0 && gy % ZONE_SIZE === 0) out.push([zx - 1, zy - 1, this.z, this.levelNo]);
+    return out;
   }
 
   /** Celda global (la que viaja en los eventos) de la celda relativa. */

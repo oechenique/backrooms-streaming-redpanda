@@ -12,6 +12,8 @@ export interface AudioFrame {
   yaw: number;
   /** Titileo de los tubos 0..1. */
   flicker: number;
+  /** Corte de luz: los tubos (y su zumbido) se apagan. */
+  blackout: boolean;
 }
 
 export class Sound {
@@ -19,6 +21,8 @@ export class Sound {
   private master!: GainNode;
   private noise!: AudioBuffer;
   private hum!: GainNode;
+  private humOsc: Array<[OscillatorNode, number]> = [];
+  private humLevel = { freq: 120, gain: 0.035 };
   private breath!: { gain: GainNode; filter: BiquadFilterNode };
   private staticOut!: { gain: GainNode; panner: PannerNode; filter: BiquadFilterNode };
   private nextBreath = 0;
@@ -43,19 +47,20 @@ export class Sound {
 
     // Zumbido de balasto: 120 Hz con armónicos, filtrado.
     this.hum = ctx.createGain();
-    this.hum.gain.value = 0.035;
+    this.hum.gain.value = this.humLevel.gain;
     const humFilter = ctx.createBiquadFilter();
     humFilter.type = 'lowpass';
     humFilter.frequency.value = 1400;
     humFilter.connect(this.hum).connect(this.master);
-    for (const [type, freq, level] of [
-      ['sawtooth', 120, 0.5],
-      ['sine', 60, 0.6],
-      ['square', 240.4, 0.08],
+    for (const [type, ratio, level] of [
+      ['sawtooth', 1, 0.5],
+      ['sine', 0.5, 0.6],
+      ['square', 2.003, 0.08],
     ] as const) {
       const osc = ctx.createOscillator();
       osc.type = type;
-      osc.frequency.value = freq;
+      osc.frequency.value = this.humLevel.freq * ratio;
+      this.humOsc.push([osc, ratio]);
       const g = ctx.createGain();
       g.gain.value = level;
       osc.connect(g).connect(humFilter);
@@ -106,6 +111,36 @@ export class Sound {
     src.start(t, Math.random() * 1.5, 0.15);
   }
 
+  /** Zumbido de los tubos del nivel actual. */
+  setHum(hum: { freq: number; gain: number }): void {
+    this.humLevel = hum;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    for (const [osc, ratio] of this.humOsc) osc.frequency.setTargetAtTime(hum.freq * ratio, t, 0.1);
+  }
+
+  /** Golpe metálico en las cañerías del techo, en una dirección al azar. */
+  clank(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const ring = ctx.createBiquadFilter();
+    ring.type = 'bandpass';
+    ring.frequency.value = 180 + Math.random() * 420;
+    ring.Q.value = 18;
+    const g = ctx.createGain();
+    const level = 0.25 + Math.random() * 0.35;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(level, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.2 + Math.random());
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = Math.random() * 2 - 1;
+    src.connect(ring).connect(g).connect(pan).connect(this.master);
+    src.start(t, Math.random(), 2.4);
+  }
+
   /** Golpe de estática al ser atrapado. */
   capture(): void {
     const ctx = this.ctx;
@@ -129,7 +164,8 @@ export class Sound {
     const t = ctx.currentTime;
 
     // Los tubos parpadean con la entidad cerca.
-    this.hum.gain.setTargetAtTime(0.035 * (1 - f.flicker * Math.random()), t, 0.02);
+    const hum = f.blackout ? 0 : this.humLevel.gain * (1 - f.flicker * Math.random());
+    this.hum.gain.setTargetAtTime(hum, t, f.blackout ? 0.05 : 0.02);
 
     // Estática: posición relativa rotada al marco del oyente (el oyente queda fijo en el origen mirando a -z).
     const cos = Math.cos(f.yaw);

@@ -93,3 +93,59 @@ export function ceiling(): THREE.CanvasTexture {
   }
   return toTexture(c, true, true);
 }
+
+/** Concreto gris de pared, con manchas de humedad y marcas del encofrado. Cubre la altura entera de la pared. */
+export function concreteWall(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 512);
+  const rnd = prng(4);
+  ctx.fillStyle = '#8d8c86';
+  ctx.fillRect(0, 0, 256, 512);
+  speckle(ctx, 256, 512, rnd, 9000, 0.18);
+  for (let i = 0; i < 10; i++) {
+    const g = ctx.createRadialGradient(rnd() * 256, rnd() * 512, 0, rnd() * 256, rnd() * 512, 30 + rnd() * 90);
+    g.addColorStop(0, 'rgba(60,62,58,0.18)');
+    g.addColorStop(1, 'rgba(60,62,58,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 256, 512);
+  }
+  ctx.fillStyle = 'rgba(40,40,38,0.25)';
+  for (const y of [128, 256, 384]) ctx.fillRect(0, y, 256, 2);
+  const damp = ctx.createLinearGradient(0, 512, 0, 400);
+  damp.addColorStop(0, 'rgba(45,48,44,0.45)');
+  damp.addColorStop(1, 'rgba(45,48,44,0)');
+  ctx.fillStyle = damp;
+  ctx.fillRect(0, 400, 256, 112);
+  return toTexture(c, true, false);
+}
+
+/** Piso de concreto con fisuras finas. */
+export function concreteFloor(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 256);
+  const rnd = prng(5);
+  ctx.fillStyle = '#6f6e69';
+  ctx.fillRect(0, 0, 256, 256);
+  speckle(ctx, 256, 256, rnd, 12000, 0.2);
+  ctx.strokeStyle = 'rgba(30,30,28,0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    let x = rnd() * 256;
+    let y = rnd() * 256;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    for (let k = 0; k < 8; k++) ctx.lineTo((x += (rnd() - 0.5) * 40), (y += (rnd() - 0.5) * 40));
+    ctx.stroke();
+  }
+  return toTexture(c, true, true);
+}
+
+/** Techo oscuro de losa con juntas. */
+export function concreteCeiling(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 256);
+  const rnd = prng(6);
+  ctx.fillStyle = '#3f3f3c';
+  ctx.fillRect(0, 0, 256, 256);
+  speckle(ctx, 256, 256, rnd, 5000, 0.2);
+  ctx.fillStyle = '#2b2b29';
+  ctx.fillRect(0, 0, 256, 6);
+  return toTexture(c, true, true);
+}

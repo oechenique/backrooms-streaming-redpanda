@@ -5,7 +5,7 @@
 
 import { WORLD_V } from '../world';
 
-export const CLIENT_VERSION = '0.2.0';
+export const CLIENT_VERSION = '0.3.0';
 
 export type EventType =
   | 'sesion_inicio'
@@ -17,7 +17,8 @@ export type EventType =
   | 'deteccion'
   | 'persecucion_inicio'
   | 'escape'
-  | 'captura';
+  | 'captura'
+  | 'noclip';
 
 export interface GameEvent {
   event_id: string;
@@ -26,7 +27,7 @@ export interface GameEvent {
   session: string;
   seed: number;
   world_v: number;
-  /** Nivel de los Backrooms (por ahora solo el 0). */
+  /** Nivel de los Backrooms (0 o 1). */
   level: number;
   type: EventType;
   /** Celda global del jugador, con decimales. */
@@ -50,6 +51,8 @@ export function uuid(): string {
 
 export class Events {
   readonly session = uuid();
+  /** Nivel actual de los Backrooms: va en el campo común `level` de cada evento. */
+  level = 0;
   /** Pendientes de envío (F2). */
   readonly buffer: GameEvent[] = [];
 
@@ -65,7 +68,7 @@ export class Events {
       session: this.session,
       seed: this.seed,
       world_v: WORLD_V,
-      level: 0,
+      level: this.level,
       type,
       x: pos.x,
       y: pos.y,

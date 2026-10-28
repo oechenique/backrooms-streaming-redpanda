@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { Dir, Edge } from '../world';
 import { CELL, CHUNK, DOOR_W, isPortal, WALL_H, WALL_T, type Level } from './level';
+import { PILLAR_HALF } from './player';
 
 /** Bloques cargados a cada lado del que pisa el jugador. Con 1, lo no cargado queda a ≥ 35 m, detrás de la niebla. */
 const RADIUS = 1;
@@ -23,6 +24,31 @@ export interface Materials {
   light: THREE.Material;
   door: THREE.Material;
   void: THREE.Material;
+  /** Paredes por las que se hace noclip (titilan). */
+  noclip: THREE.Material;
+  puddle: THREE.Material;
+  pipe: THREE.Material;
+}
+
+/** Lo que cambia entre niveles al armar los bloques. */
+export interface Style {
+  mats: Materials;
+  /** Un tubo de luz cada tantas celdas, y su tamaño (ancho, largo) en metros. */
+  lightEvery: number;
+  lightSize: [number, number];
+  puddles: boolean;
+  pipes: boolean;
+}
+
+const mod = (a: number, n: number) => ((a % n) + n) % n;
+
+// Hash entero chico para detalles que son solo decorado (charcos): estable por celda, no es parte del mundo.
+function decor(gx: number, gy: number): number {
+  let h = Math.imul((gx % 0x100000) ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(gy % 0x100000, 0xc2b2ae35);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return (h >>> 0) / 4294967296;
 }
 
 // Acumula quads con normales y UV, y arma una BufferGeometry indexada.
@@ -61,6 +87,21 @@ class Builder {
     else this.quad([x0, y, z0, x1, y, z0, x1, y, z1, x0, y, z1], [0, -1, 0], uvs);
   }
 
+  /** Disco horizontal (elipse de radios rx, rz) a altura y, mirando hacia arriba. */
+  disc(cx: number, y: number, cz: number, rx: number, rz: number, segments = 10): void {
+    const base = this.pos.length / 3;
+    this.pos.push(cx, y, cz);
+    this.nor.push(0, 1, 0);
+    this.uv.push(0.5, 0.5);
+    for (let i = 0; i < segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      this.pos.push(cx + Math.cos(a) * rx, y, cz + Math.sin(a) * rz);
+      this.nor.push(0, 1, 0);
+      this.uv.push(0.5 + Math.cos(a) / 2, 0.5 + Math.sin(a) / 2);
+    }
+    for (let i = 0; i < segments; i++) this.idx.push(base, base + 1 + ((i + 1) % segments), base + 1 + i);
+  }
+
   build(): THREE.BufferGeometry | null {
     if (!this.idx.length) return null;
     const g = new THREE.BufferGeometry();
@@ -75,6 +116,7 @@ class Builder {
 
 interface Builders {
   walls: Builder;
+  noclip: Builder;
   doors: Builder;
   voids: Builder;
 }
@@ -83,7 +125,7 @@ interface Builders {
  * Pared sobre un borde. `alongX`: el borde corre en x (lado S de una celda); si no, corre en z (lado E).
  * (ex, ez) es el punto medio del borde.
  */
-function edgeMesh(b: Builders, edge: Edge, ex: number, ez: number, alongX: boolean): void {
+function edgeMesh(b: Builders, edge: Edge, ex: number, ez: number, alongX: boolean, noclip: boolean): void {
   if (edge === Edge.OPEN) return;
   const h = CELL / 2 + WALL_T / 2; // medio largo, con un poco de solape para tapar las esquinas
   const t = WALL_T / 2;
@@ -98,7 +140,7 @@ function edgeMesh(b: Builders, edge: Edge, ex: number, ez: number, alongX: boole
     return;
   }
   if (!isPortal(edge)) {
-    seg(b.walls, -h, h, 0, WALL_H, t, WALLPAPER_W, WALL_H);
+    seg(noclip ? b.noclip : b.walls, -h, h, 0, WALL_H, t, WALLPAPER_W, WALL_H);
     return;
   }
   // Puerta de capa: pared a los costados, dintel, marco y un hueco oscuro que se atraviesa.
@@ -113,24 +155,42 @@ function edgeMesh(b: Builders, edge: Edge, ex: number, ez: number, alongX: boole
   seg(b.voids, -d, d, 0, DOOR_H, 0.01, 1, 1);
 }
 
-function buildChunk(level: Level, mats: Materials, cx: number, cy: number): THREE.Group {
-  const b: Builders = { walls: new Builder(), doors: new Builder(), voids: new Builder() };
+function buildChunk(level: Level, style: Style, cx: number, cy: number): THREE.Group {
+  const b: Builders = { walls: new Builder(), noclip: new Builder(), doors: new Builder(), voids: new Builder() };
   const floor = new Builder();
   const ceil = new Builder();
   const lights = new Builder();
+  const puddles = new Builder();
+  const pipes = new Builder();
   const rx0 = cx * CHUNK;
   const ry0 = cy * CHUNK;
+  const [lw, ll] = style.lightSize;
+  const p = PILLAR_HALF;
 
   for (let ry = ry0; ry < ry0 + CHUNK; ry++)
     for (let rx = rx0; rx < rx0 + CHUNK; rx++) {
       // Cada celda dibuja solo sus lados E y S: cada borde del mundo tiene un único dueño.
-      edgeMesh(b, level.edge(rx, ry, Dir.E), (rx + 1) * CELL, (ry + 0.5) * CELL, false);
-      edgeMesh(b, level.edge(rx, ry, Dir.S), (rx + 0.5) * CELL, (ry + 1) * CELL, true);
-      // Un tubo fluorescente cada dos celdas, fijo en la grilla global (la paridad de rx es la de gx).
-      if (((rx | ry) & 1) === 0) {
+      const e = level.edge(rx, ry, Dir.E);
+      const s = level.edge(rx, ry, Dir.S);
+      const ne = e === Edge.WALL && level.noclip(rx, ry, Dir.E);
+      const ns = s === Edge.WALL && level.noclip(rx, ry, Dir.S);
+      edgeMesh(b, e, (rx + 1) * CELL, (ry + 0.5) * CELL, false, ne);
+      edgeMesh(b, s, (rx + 0.5) * CELL, (ry + 1) * CELL, true, ns);
+      // Pilar en la esquina superior izquierda de la celda.
+      if (level.pillar(rx, ry)) b.walls.box(rx * CELL - p, rx * CELL + p, 0, WALL_H, ry * CELL - p, ry * CELL + p, WALLPAPER_W, WALL_H);
+      // Tubos de luz fijos en la grilla global (rx y gx difieren en un múltiplo de 256).
+      if (mod(rx, style.lightEvery) === 0 && mod(ry, style.lightEvery) === 0) {
         const mx = (rx + 0.5) * CELL;
         const mz = (ry + 0.5) * CELL;
-        lights.flat(mx - 0.3, mx + 0.3, mz - 0.6, mz + 0.6, WALL_H - 0.01, false, 1);
+        lights.flat(mx - lw / 2, mx + lw / 2, mz - ll / 2, mz + ll / 2, WALL_H - 0.01, false, 1);
+      }
+      if (style.puddles) {
+        const { gx, gy } = level.global(rx, ry);
+        const h = decor(gx, gy);
+        if (h < 0.07) {
+          const r = 0.35 + (h / 0.07) * 0.6;
+          puddles.disc((rx + 0.5) * CELL, 0.004, (ry + 0.5) * CELL, r, r * (0.55 + decor(gy, gx) * 0.4), 18);
+        }
       }
     }
 
@@ -140,15 +200,27 @@ function buildChunk(level: Level, mats: Materials, cx: number, cy: number): THRE
   const z1 = (ry0 + CHUNK) * CELL;
   floor.flat(x0, x1, z0, z1, 0, true, CARPET_M);
   ceil.flat(x0, x1, z0, z1, WALL_H, false, TILE_M);
+  // Caños a lo largo de x, uno cada cuatro filas, colgados del techo; atraviesan las paredes.
+  if (style.pipes)
+    for (let ry = ry0; ry < ry0 + CHUNK; ry++)
+      if (mod(ry, 4) === 1) {
+        const z = (ry + 0.25) * CELL;
+        pipes.box(x0, x1, WALL_H - 0.24, WALL_H - 0.1, z - 0.07, z + 0.07, 1, 1);
+        pipes.box(x0, x1, WALL_H - 0.16, WALL_H - 0.08, z + 0.18, z + 0.26, 1, 1);
+      }
 
+  const m = style.mats;
   const group = new THREE.Group();
   for (const [builder, mat] of [
-    [b.walls, mats.wall],
-    [b.doors, mats.door],
-    [b.voids, mats.void],
-    [floor, mats.floor],
-    [ceil, mats.ceiling],
-    [lights, mats.light],
+    [b.walls, m.wall],
+    [b.noclip, m.noclip],
+    [b.doors, m.door],
+    [b.voids, m.void],
+    [floor, m.floor],
+    [ceil, m.ceiling],
+    [lights, m.light],
+    [puddles, m.puddle],
+    [pipes, m.pipe],
   ] as const) {
     const g = builder.build();
     if (g) group.add(new THREE.Mesh(g, mat));
@@ -162,7 +234,7 @@ export class Chunks {
   constructor(
     private readonly scene: THREE.Scene,
     private readonly level: Level,
-    private readonly mats: Materials,
+    private style: Style,
     /** ¿Están en memoria las zonas que necesita el bloque? Si no, se espera (salvo el del jugador). */
     private readonly ready: (cx: number, cy: number) => boolean,
   ) {}
@@ -203,13 +275,14 @@ export class Chunks {
     this.add(cx, cy);
   }
 
-  /** Descarta todo (cambio de capa). */
-  reset(): void {
+  /** Descarta todo (cambio de capa o de nivel). Con `style`, los bloques nuevos se arman con ese estilo. */
+  reset(style?: Style): void {
+    if (style) this.style = style;
     for (const [k, group] of this.loaded) this.remove(k, group);
   }
 
   private add(cx: number, cy: number): void {
-    const group = buildChunk(this.level, this.mats, cx, cy);
+    const group = buildChunk(this.level, this.style, cx, cy);
     this.scene.add(group);
     this.loaded.set(`${cx},${cy}`, group);
   }
