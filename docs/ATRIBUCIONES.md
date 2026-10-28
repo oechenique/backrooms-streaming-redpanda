@@ -10,11 +10,18 @@ cabecera el aviso de copyright original, más una línea que indica de qué arch
 
 | Origen | Autor | Licencia | Qué se toma | Dónde va | Aviso |
 |---|---|---|---|---|---|
-| [TediusTimmy/BackRooms](https://github.com/TediusTimmy/BackRooms) (`MazeGen8.cpp`, `Zone.h`), commit `2ed8214` | Thomas DiModica | BSD-3-Clause (cabecera en los fuentes; el repo no tiene archivo LICENSE) | Generador de zonas: hash `Mix`, RNG por borde para que las zonas vecinas coincidan, oficinas, relleno DFS, conectividad, aberturas de borde, puertas que cambian de capa | `world/` (F1) | [`third_party/TediusTimmy-BackRooms.LICENSE.txt`](../third_party/TediusTimmy-BackRooms.LICENSE.txt) |
+| [TediusTimmy/BackRooms](https://github.com/TediusTimmy/BackRooms) (`MazeGen8.cpp`, `Zone.h`), commit `2ed8214` | Thomas DiModica | BSD-3-Clause (cabecera en los fuentes; el repo no tiene archivo LICENSE) | Generador de zonas: hash `Mix`, RNG por borde para que las zonas vecinas coincidan, oficinas, relleno DFS, conectividad, aberturas de borde, puertas que cambian de capa | `world/hash.ts`, `world/lcg.ts`, `world/zone.ts` (F1a) | [`third_party/TediusTimmy-BackRooms.LICENSE.txt`](../third_party/TediusTimmy-BackRooms.LICENSE.txt) |
 | [yerdaulet-damir/liminal](https://github.com/yerdaulet-damir/liminal) (`shared/src/hearing.ts`, `shared/src/director.ts`), commit `ff9ee5b` | Liminal contributors | MIT | Base del oído de La Interferencia (ruido por velocidad, atenuación por distancia y paredes) y del director de estados `calm/stalk/hunt/retreat` | `game/` (F1) | [`third_party/liminal.LICENSE.txt`](../third_party/liminal.LICENSE.txt) |
 
-Cambios previstos sobre el código de TediusTimmy: la `seed` entra en el hash de cada zona (en el original solo
-elige la zona inicial), el algoritmo se versiona con `world_v`, y se porta de C++ a TypeScript.
+Cambios sobre el código de TediusTimmy (F1a, `world_v = 1`; detalle en la cabecera de cada archivo):
+- De C++ a TypeScript. El LCG de 48 bits opera en dos mitades de 24 bits, sin BigInt (idéntico bit a bit; hay test).
+- La `seed` entra en el hash de cada zona (en el original solo elegía la zona inicial), junto con un tipo de RNG
+  que separa costuras horizontales, verticales, puertas e interior. Eso arregla de paso la coincidencia en
+  `(x, x+2)` que el autor deja anotada.
+- Costuras norte/sur reordenadas para que la fila 255 de una zona comparta RNG con la fila 0 de la de abajo.
+- `addOffices` abandona después de 10.000 intentos. En el original puede quedar en un bucle infinito: medido sobre
+  100 zonas, el 11 % llega a ese tope.
+- No se portan `MakeMap.h` (mapa en texto para el raycaster) ni `main.cpp`.
 
 Algoritmos de dominio público que usa el generador (no requieren aviso; se citan por honestidad):
 - Finalizador de bits de David Stafford, variante 13 (`StaffordMix.h`, "No rights applicable") —
