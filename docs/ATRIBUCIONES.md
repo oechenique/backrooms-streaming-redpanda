@@ -11,7 +11,7 @@ cabecera el aviso de copyright original, más una línea que indica de qué arch
 | Origen | Autor | Licencia | Qué se toma | Dónde va | Aviso |
 |---|---|---|---|---|---|
 | [TediusTimmy/BackRooms](https://github.com/TediusTimmy/BackRooms) (`MazeGen8.cpp`, `Zone.h`), commit `2ed8214` | Thomas DiModica | BSD-3-Clause (cabecera en los fuentes; el repo no tiene archivo LICENSE) | Generador de zonas: hash `Mix`, RNG por borde para que las zonas vecinas coincidan, oficinas, relleno DFS, conectividad, aberturas de borde, puertas que cambian de capa | `world/hash.ts`, `world/lcg.ts`, `world/zone.ts` (F1a) | [`third_party/TediusTimmy-BackRooms.LICENSE.txt`](../third_party/TediusTimmy-BackRooms.LICENSE.txt) |
-| [yerdaulet-damir/liminal](https://github.com/yerdaulet-damir/liminal) (`shared/src/hearing.ts`, `shared/src/director.ts`), commit `ff9ee5b` | Liminal contributors | MIT | Base del oído de La Interferencia (ruido por velocidad, atenuación por distancia y paredes) y del director de estados `calm/stalk/hunt/retreat` | `game/` (F1) | [`third_party/liminal.LICENSE.txt`](../third_party/liminal.LICENSE.txt) |
+| [yerdaulet-damir/liminal](https://github.com/yerdaulet-damir/liminal) (`shared/src/hearing.ts`, `shared/src/director.ts`), commit `ff9ee5b` | Liminal contributors | MIT | Base del oído de La Interferencia (ruido por velocidad, atenuación por distancia y paredes) y del director de estados `calm/stalk/hunt/retreat` | `game/entity/hearing.ts`, `game/entity/director.ts` (F1b) | [`third_party/liminal.LICENSE.txt`](../third_party/liminal.LICENSE.txt) |
 
 Cambios sobre el código de TediusTimmy (F1a, `world_v = 1`; detalle en la cabecera de cada archivo):
 - De C++ a TypeScript. El LCG de 48 bits opera en dos mitades de 24 bits, sin BigInt (idéntico bit a bit; hay test).
@@ -31,6 +31,14 @@ Algoritmos de dominio público que usa el generador (no requieren aviso; se cita
 No se toma el motor de render de TediusTimmy (`olcPixelGameEngine`, `olcPGEX_RayCastWorld`, licencia OLC-3 de
 OneLoneCoder / David Barr): se reemplaza por Three.js.
 
+Cambios sobre el código de liminal (F1b; aviso MIT completo en la cabecera de cada archivo):
+- `hearing.ts`: `footstepNoise` y `heardLoudness` casi sin cambios; `wallsBetween` recorre nuestra grilla de celdas
+  (DDA) en vez de su lista de cajas; sin micrófono; `SPRINT_SPEED` es nuestra velocidad de carrera.
+- `director.ts`: misma máquina de estados y mismos valores; los umbrales de micrófono pasan a ser umbrales de ruido
+  de pasos; un solo jugador.
+- El movimiento de la criatura (búsqueda de caminos, bandas de distancia, reaparición) es propio
+  (`game/entity/interferencia.ts`).
+
 Pendiente: escribirle a Thomas DiModica para contarle que el generador del juego es un port del suyo y agradecerle.
 
 ## Lore
@@ -46,7 +54,7 @@ Pendiente: escribirle a Thomas DiModica para contarle que el generador del juego
 
 | Repo | Qué aporta como referencia | Licencia | ¿Se puede copiar código? |
 |---|---|---|---|
-| [pablostanley/vackrooms](https://github.com/pablostanley/vackrooms) | Bloques con huecos de borde compartidos, regeneración de zonas fuera de vista, versionado del generador | MIT (el código); dos grabaciones de audio de terceros quedan fuera | Sí, con aviso (no se tomó nada todavía) |
+| [pablostanley/vackrooms](https://github.com/pablostanley/vackrooms) | Bloques con huecos de borde compartidos, regeneración de zonas fuera de vista, versionado del generador | MIT (el código); dos grabaciones de audio de terceros quedan fuera | Sí, con aviso. **Idea tomada sin código** (F1b): bloques fuera de vista que cambian con los bordes fijos (`game/shifter.ts`) |
 | [tanuu5/sofa-ga-aru](https://github.com/tanuu5/sofa-ga-aru) | Texturas y audio 100 % procedurales | MIT | Sí, con aviso (no se tomó nada todavía) |
 | [ViciousSquid/Fio](https://github.com/ViciousSquid/Fio) | Matemática de portales no euclidianos | MIT | Sí, con aviso (no se tomó nada todavía) |
 | [zodiepupper/backrooms](https://github.com/zodiepupper/backrooms) | Generación procedural con seeds en Godot | MIT | Sí, con aviso (no se tomó nada todavía) |
