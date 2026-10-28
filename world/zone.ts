@@ -40,7 +40,7 @@ SUCH DAMAGE.
 
 import { mix, RngKind } from './hash';
 import { Lcg } from './lcg';
-import { levelParams, type LevelParams } from './levels';
+import { levelParams, type GarageParams, type LevelParams } from './levels';
 
 export const ZONE_SIZE = 256;
 const MAX = ZONE_SIZE;
@@ -306,6 +306,33 @@ function addMoreDoors(rng: Lcg, b: Board, p: LevelParams['extraOpenings']): void
   }
 }
 
+// Estacionamiento (propio, no es del original): todo abierto y unas pocas líneas de pared con huecos. Las líneas del
+// borde de la zona usan el RNG de esa costura, el mismo que la zona vecina: coinciden sin conocerse.
+function garage(b: Board, p: GarageParams, rng: Lcg, left: Lcg, right: Lcg, up: Lcg, down: Lcg): void {
+  b.e.fill(OPEN);
+  b.v.fill(1);
+  // Recorre una línea de MAX celdas alternando tramos de pared y huecos; `put(i, tipo)` pone el borde de la celda i.
+  const line = (r: Lcg, put: (i: number, t: number) => void) => {
+    if (r.rand(1000) >= p.lineChance * 1000) return;
+    let wall = r.rand(2) === 0;
+    for (let i = 0; i < MAX; wall = !wall) {
+      const run = wall ? r.rand(p.wall.span) + p.wall.min : r.rand(p.gap.span) + p.gap.min;
+      for (let k = 0; k < run && i < MAX; k++, i++) put(i, wall ? WALL : OPEN);
+    }
+  };
+  for (let c = p.lineEvery - 1; c < MAX; c += p.lineEvery) {
+    if (c === TOP) {
+      line(right, (i, t) => b.set(TOP, i, E, t));
+      line(down, (i, t) => b.set(i, TOP, S, t));
+    } else {
+      line(rng, (i, t) => (b.set(c, i, E, t), b.set(c + 1, i, W, t)));
+      line(rng, (i, t) => (b.set(i, c, S, t), b.set(i, c + 1, N, t)));
+    }
+  }
+  line(left, (i, t) => b.set(0, i, W, t));
+  line(up, (i, t) => b.set(i, 0, N, t));
+}
+
 /**
  * Genera la zona (x, y, z) del nivel `level` del mundo `seed`. Puro y determinístico.
  * Coordenadas: enteros de 32 bits sin signo.
@@ -327,6 +354,10 @@ export function generateZone(seed: number, x: number, y: number, z: number, leve
 
   const b = new Board();
   let officesCapped = false;
+  if (p.layout === 'garage') {
+    garage(b, p.garage!, rng, left, right, up, down);
+    return { seed, x, y, z, level, edges: b.e, officesCapped };
+  }
   if (p.doors) addDoors(door, b, p.doors);
   if (z !== 0) {
     officesCapped = addOffices(rng, b, p.offices);

@@ -122,7 +122,7 @@ describe('World', () => {
   });
 });
 
-describe('golden (world_v 2)', () => {
+describe('golden (world_v 3)', () => {
   it('mantiene una zona que llega al tope de intentos de oficinas', () => {
     // Seed 1, 14 zonas al este del arranque. En el original esta zona no termina de generarse.
     const zone = generateZone(1, 1110350398, 2386010651, 1341430631);
@@ -132,7 +132,7 @@ describe('golden (world_v 2)', () => {
 
   // Si este test falla, el generador cambió: o se revierte, o se sube WORLD_V y se actualizan los valores.
   it('mantiene el mundo de las seeds fijas', () => {
-    expect(WORLD_V).toBe(2);
+    expect(WORLD_V).toBe(3);
     const got = [1, 42, 20261028].map((seed) => {
       const s = getStart(seed);
       return { ...s, zone: fingerprint(generateZone(seed, Math.floor(s.gx / N), Math.floor(s.gy / N), s.z)) };
@@ -191,7 +191,7 @@ function reachable(zone: Zone): number {
   return count / (N * N);
 }
 
-describe('Nivel 1 (Habitable Zone)', () => {
+describe('Nivel 1 (Habitable Zone, estacionamiento)', () => {
   const seed = 20261028;
   const zone = generateZone(seed, 1000, 2000, 7, 1);
 
@@ -199,6 +199,11 @@ describe('Nivel 1 (Habitable Zone)', () => {
     expect(generateZone(seed, 1000, 2000, 7, 1).edges).toEqual(zone.edges);
     expect(fingerprint(zone)).not.toBe(fingerprint(generateZone(seed, 1000, 2000, 7, 0)));
     expect(zone.edges.some(isPortal)).toBe(false);
+  });
+
+  it('casi no tiene paredes: más del 97 % de los bordes están abiertos', () => {
+    const open = zone.edges.filter((e) => e === Edge.OPEN).length;
+    expect(open / zone.edges.length).toBeGreaterThan(0.97);
   });
 
   it('es más abierto que el Nivel 0 y se recorre casi entero', () => {
@@ -217,7 +222,7 @@ describe('Nivel 1 (Habitable Zone)', () => {
   });
 
   it('golden', () => {
-    expect(fingerprint(generateZone(1, 1110350384, 2386010651, 1341430631, 1))).toMatchInlineSnapshot(`"e6952374"`);
+    expect(fingerprint(generateZone(1, 1110350384, 2386010651, 1341430631, 1))).toMatchInlineSnapshot(`"c7f647a0"`);
   });
 });
 
@@ -275,7 +280,7 @@ describe('noclip y pilares', () => {
     `);
   });
 
-  it('los pilares van en la grilla de 3, en esquinas abiertas, y solo en el Nivel 1', () => {
+  it('los pilares van en la grilla de 4, en esquinas abiertas, y solo en el Nivel 1', () => {
     const world = new World(seed);
     let pillars = 0;
     for (let cy = 1; cy < N; cy++)
@@ -285,10 +290,11 @@ describe('noclip y pilares', () => {
         expect(world.pillar(gx, gy, s.z, 0)).toBe(false);
         if (!world.pillar(gx, gy, s.z, 1)) continue;
         pillars++;
-        expect(gx % 3 === 0 && gy % 3 === 0).toBe(true);
+        expect(gx % 4 === 0 && gy % 4 === 0).toBe(true);
         expect(world.edge(gx - 1, gy, s.z, Dir.E, 1)).toBe(Edge.OPEN);
       }
-    expect(pillars).toBeGreaterThan(50);
+    // Grilla de 4 sobre 256×256: ~4.000 esquinas; casi todas tienen pilar (salvo pegadas a una pared).
+    expect(pillars).toBeGreaterThan(3500);
   });
 });
 

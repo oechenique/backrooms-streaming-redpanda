@@ -13,8 +13,9 @@ export { Dir, Edge, generateZone, levelParams, LEVELS, ZONE_SIZE, type LevelPara
  * para que el mapa de los perdidos reconstruya la partida con el algoritmo correcto.
  * - 1: port de TediusTimmy con seed (F1a); Nivel 1 y noclip a 1/1500 (F1c).
  * - 2: noclip a 1/300 paredes. La geometría de los niveles 0 y 1 no cambia; cambian las paredes de noclip.
+ * - 3: el Nivel 1 pasa a ser un estacionamiento (layout 'garage', pilares cada 4 celdas). El Nivel 0 no cambia.
  */
-export const WORLD_V = 2;
+export const WORLD_V = 3;
 
 /** Celdas por lado de una capa: 2^32 zonas × 256. Las coordenadas globales dan la vuelta acá. */
 export const LAYER_CELLS = 2 ** 32 * ZONE_SIZE;
@@ -99,12 +100,12 @@ export class World {
   }
 
   /**
-   * ¿Hay un pilar en la esquina superior izquierda de la celda (gx, gy)? Solo sobre una grilla de 3 celdas y donde
-   * los cuatro bordes que llegan a la esquina están abiertos: en los salones, no en los pasillos.
+   * ¿Hay un pilar en la esquina superior izquierda de la celda (gx, gy)? Solo sobre la grilla del nivel y donde
+   * los cuatro bordes que llegan a la esquina están abiertos (no pegado a una pared).
    */
   pillar(gx: number, gy: number, z: number, level = 0): boolean {
-    const { pillarRate } = levelParams(level);
-    if (!pillarRate || wrapCell(gx) % 3 || wrapCell(gy) % 3) return false;
+    const { pillarRate, pillarEvery } = levelParams(level);
+    if (!pillarRate || wrapCell(gx) % pillarEvery || wrapCell(gy) % pillarEvery) return false;
     const open = (x: number, y: number, d: Dir) => this.edge(x, y, z, d, level) === Edge.OPEN;
     if (!open(gx - 1, gy - 1, Dir.E) || !open(gx - 1, gy, Dir.E)) return false;
     if (!open(gx - 1, gy - 1, Dir.S) || !open(gx, gy - 1, Dir.S)) return false;
