@@ -6,6 +6,7 @@ import { Interferencia, type Tick } from './entity/interferencia';
 import { Signal, threatOf } from './entity/signal';
 import { safeLanding } from './landing';
 import { Events, uuid } from './events';
+import { browserOutboxDeps, Outbox } from './outbox';
 import { Input } from './input';
 import { CELL, CHUNK, Level } from './level';
 import { Player, type Crossing } from './player';
@@ -41,7 +42,11 @@ const loader = new ZoneLoader(world);
 const startLevel = debug && new URL(location.href).searchParams.get('nivel') === '1' ? 1 : 0;
 const level = new Level(world, start.gx, start.gy, start.z, startLevel);
 const player = new Player(level, (start.gx - level.originGx + 0.5) * CELL, (start.gy - level.originGy + 0.5) * CELL);
-const events = new Events(seed, touch ? 'touch' : 'desktop', debug);
+// Los eventos van a una cola que los manda al collector cada 2 s (proxy de Vite /api → collector). Si el collector
+// no responde, la cola espera y reintenta; el juego sigue igual. Ver outbox.ts.
+const outbox = new Outbox(browserOutboxDeps());
+const events = new Events(seed, touch ? 'touch' : 'desktop', debug, (e) => outbox.push(e));
+setInterval(() => void outbox.flush(), 2000);
 events.level = startLevel;
 const sound = new Sound();
 player.onStep = (speed) => sound.step(speed);
@@ -188,7 +193,15 @@ document.addEventListener('pointerlockchange', () => {
     overlay.hidden = false;
   }
 });
-addEventListener('pagehide', () => endSession('salida'));
+// Al cerrar: fin de sesión y lo pendiente por sendBeacon. Al pasar a segundo plano (en el celu puede ser lo último que
+// pase antes de que el sistema mate la pestaña), solo se manda lo pendiente.
+addEventListener('pagehide', () => {
+  endSession('salida');
+  outbox.flushOnExit();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') outbox.flushOnExit();
+});
 
 function crossDoor(dz: 1 | -1): void {
   level.enterLayer(level.z + dz);
@@ -232,7 +245,7 @@ function fadeIn(seconds: number): void {
   });
 }
 
-const VIA: Record<Crossing['kind'], string> = { door: 'puerta', noclip: 'noclip' };
+const VIA = { door: 'puerta', noclip: 'noclip' } as const satisfies Record<Crossing['kind'], string>;
 
 function capture(): void {
   phase = 'over';
@@ -357,6 +370,7 @@ function updateHud(): void {
     const d = entity.director;
     text +=
       `\n${frameMs.toFixed(1)} ms/frame · ${renderer.info.render.calls} draws` +
+      `\ncola ${outbox.size}${outbox.waitMs ? ` · collector sin respuesta, reintento en ${Math.ceil(outbox.waitMs / 1000)} s` : ''}` +
       (theme.entity
         ? `\n${d.mood} · amenaza ${d.menace.toFixed(0)} · sospecha ${d.suspicion.toFixed(1)}` +
           `\nentidad a ${Math.hypot(entity.x - player.x, entity.z - player.z).toFixed(1)} m`
