@@ -3,9 +3,10 @@
 
 import { mix, RngKind } from './hash';
 import { Lcg } from './lcg';
+import { levelParams, LEVELS, type LevelParams } from './levels';
 import { Dir, Edge, generateZone, ZONE_SIZE, type Zone } from './zone';
 
-export { Dir, Edge, generateZone, ZONE_SIZE, type Zone };
+export { Dir, Edge, generateZone, levelParams, LEVELS, ZONE_SIZE, type LevelParams, type Zone };
 
 /**
  * Versión del generador. Cambia cada vez que una misma seed pasa a dar otro mundo; los eventos la llevan
@@ -38,14 +39,14 @@ export class World {
     private readonly cacheSize = 16,
   ) {}
 
-  has(x: number, y: number, z: number): boolean {
-    return this.cache.has(key(x, y, z));
+  has(x: number, y: number, z: number, level = 0): boolean {
+    return this.cache.has(key(x, y, z, level));
   }
 
   /** Guarda una zona generada en otro lado (por ejemplo, en un Web Worker). */
   put(zone: Zone): void {
     if (zone.seed !== this.seed >>> 0) throw new Error(`zona de otra seed: ${zone.seed}`);
-    const k = key(zone.x, zone.y, zone.z);
+    const k = key(zone.x, zone.y, zone.z, zone.level);
     this.cache.delete(k);
     if (this.cache.size >= this.cacheSize) {
       const oldest = this.cache.keys().next().value!;
@@ -56,32 +57,64 @@ export class World {
   }
 
   /** La zona pedida; si no está en caché, se genera acá mismo (sincrónico). */
-  zone(x: number, y: number, z: number): Zone {
+  zone(x: number, y: number, z: number, level = 0): Zone {
     const l = this.last;
-    if (l && l.x === x >>> 0 && l.y === y >>> 0 && l.z === z >>> 0) return l;
-    const k = key(x, y, z);
+    if (l && l.x === x >>> 0 && l.y === y >>> 0 && l.z === z >>> 0 && l.level === level) return l;
+    const k = key(x, y, z, level);
     let zone = this.cache.get(k);
     if (zone) {
       this.cache.delete(k);
       this.cache.set(k, zone);
     } else {
-      zone = generateZone(this.seed, x, y, z);
+      zone = generateZone(this.seed, x, y, z, level);
       this.put(zone);
     }
     this.last = zone;
     return zone;
   }
 
-  /** Borde `dir` de la celda global (gx, gy) en la capa z. */
-  edge(gx: number, gy: number, z: number, dir: Dir): Edge {
+  /** Borde `dir` de la celda global (gx, gy) en la capa z del nivel. */
+  edge(gx: number, gy: number, z: number, dir: Dir, level = 0): Edge {
     const sx = splitCell(gx);
     const sy = splitCell(gy);
-    const zone = this.zone(sx.zone, sy.zone, z);
+    const zone = this.zone(sx.zone, sy.zone, z, level);
     return zone.edges[(sy.cell * ZONE_SIZE + sx.cell) * 4 + dir] as Edge;
+  }
+
+  /**
+   * ¿Esta pared deja hacer noclip? Pocas paredes, elegidas por hash del borde: es la misma vista desde las dos
+   * celdas, y depende de la seed, el nivel y la capa. Solo en niveles con `noclipRate` > 0.
+   */
+  noclip(gx: number, gy: number, z: number, dir: Dir, level = 0): boolean {
+    const { noclipRate } = levelParams(level);
+    if (!noclipRate || this.edge(gx, gy, z, dir, level) !== Edge.WALL) return false;
+    // El dueño del borde es la celda de la que es lado E o S.
+    const vertical = dir === Dir.W || dir === Dir.E;
+    const sx = splitCell(dir === Dir.W ? gx - 1 : gx);
+    const sy = splitCell(dir === Dir.N ? gy - 1 : gy);
+    const id = (sy.cell * ZONE_SIZE + sx.cell) * 2 + (vertical ? 0 : 1);
+    return unit(mix(this.seed, RngKind.NOCLIP, sx.zone, sy.zone, z, id, level)) < noclipRate;
+  }
+
+  /**
+   * ¿Hay un pilar en la esquina superior izquierda de la celda (gx, gy)? Solo sobre una grilla de 3 celdas y donde
+   * los cuatro bordes que llegan a la esquina están abiertos: en los salones, no en los pasillos.
+   */
+  pillar(gx: number, gy: number, z: number, level = 0): boolean {
+    const { pillarRate } = levelParams(level);
+    if (!pillarRate || wrapCell(gx) % 3 || wrapCell(gy) % 3) return false;
+    const open = (x: number, y: number, d: Dir) => this.edge(x, y, z, d, level) === Edge.OPEN;
+    if (!open(gx - 1, gy - 1, Dir.E) || !open(gx - 1, gy, Dir.E)) return false;
+    if (!open(gx - 1, gy - 1, Dir.S) || !open(gx, gy - 1, Dir.S)) return false;
+    const sx = splitCell(gx);
+    const sy = splitCell(gy);
+    return unit(mix(this.seed, RngKind.PILLAR, sx.zone, sy.zone, z, sy.cell * ZONE_SIZE + sx.cell, level)) < pillarRate;
   }
 }
 
-const key = (x: number, y: number, z: number) => `${x >>> 0},${y >>> 0},${z >>> 0}`;
+const key = (x: number, y: number, z: number, level: number) => `${level}:${x >>> 0},${y >>> 0},${z >>> 0}`;
+// 53 bits altos del hash como número en [0, 1).
+const unit = (h: bigint) => Number(h >> 11n) / 2 ** 53;
 
 export interface Start {
   /** Celda global de arranque. */

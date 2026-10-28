@@ -35,10 +35,12 @@ SUCH DAMAGE.
 //   zona y+1, al revés de cómo quedan pegadas. Acá la fila 255 de la zona y comparte RNG con la fila 0 de la y+1.
 // - `addOffices` deja de buscar lugar después de OFFICE_TRIES intentos (el original puede quedar en un bucle
 //   infinito si no entra una oficina más).
+// - Las cantidades y tamaños salen de la tabla de niveles (levels.ts); el Nivel 0 usa los del original.
 // - Se quitaron MakeMap.h (el mapa en texto para el raycaster) y los tipos de borde que el generador no usa.
 
 import { mix, RngKind } from './hash';
 import { Lcg } from './lcg';
+import { levelParams, type LevelParams } from './levels';
 
 export const ZONE_SIZE = 256;
 const MAX = ZONE_SIZE;
@@ -67,6 +69,8 @@ export interface Zone {
   readonly x: number;
   readonly y: number;
   readonly z: number;
+  /** Nivel de los Backrooms. */
+  readonly level: number;
   /** 4 bordes por celda: edges[(cy * ZONE_SIZE + cx) * 4 + dir]. */
   readonly edges: Uint8Array;
   /** `addOffices` llegó al tope de intentos (en el original, bucle infinito). Solo informativo. */
@@ -108,8 +112,8 @@ const isPortal = (t: number) => t === DOOR_UP || t === DOOR_DOWN;
 const isPassable = (t: number) => t === OPEN || t === DOOR;
 const inside = (x: number, y: number) => x > -1 && x < MAX && y > -1 && y < MAX;
 
-function addDoors(rng: Lcg, b: Board): void {
-  let n = rng.rand(1024) + 1024;
+function addDoors(rng: Lcg, b: Board, p: NonNullable<LevelParams['doors']>): void {
+  let n = rng.rand(p.span) + p.base;
   while (--n) {
     for (;;) {
       const x = rng.rand(MAX - 2) + 1;
@@ -157,15 +161,15 @@ function openWall(rng: Lcg, b: Board, x: number, y: number, [dx, dy, side, back]
 }
 
 // Devuelve true si abandonó por llegar al tope de intentos.
-function addOffices(rng: Lcg, b: Board): boolean {
-  let n = rng.rand(96) + 128;
+function addOffices(rng: Lcg, b: Board, p: LevelParams['offices']): boolean {
+  let n = rng.rand(p.span) + p.base;
   while (--n) {
     let found = false;
     for (let tries = 0; !found && tries < OFFICE_TRIES; ++tries) {
-      const x = rng.rand(MAX - 9) + 1;
-      const y = rng.rand(MAX - 9) + 1;
-      let w = rng.rand(16) + 8;
-      let h = rng.rand(16) + 8;
+      const x = rng.rand(MAX - (p.min + 1)) + 1;
+      const y = rng.rand(MAX - (p.min + 1)) + 1;
+      let w = rng.rand(p.sizeSpan) + p.min;
+      let h = rng.rand(p.sizeSpan) + p.min;
       if (x + w > TOP - 1) w = TOP - 1 - x;
       if (y + h > TOP - 1) h = TOP - 1 - y;
       if (checkOffice(b, x, y, w, h)) {
@@ -286,8 +290,8 @@ function connectEdge(rng: Lcg, b: Board, side: Dir): void {
 }
 
 // Paredes extra abiertas al final, para que no sea un laberinto perfecto (bucles).
-function addMoreDoors(rng: Lcg, b: Board): void {
-  let n = rng.rand(2048) + 1024;
+function addMoreDoors(rng: Lcg, b: Board, p: LevelParams['extraOpenings']): void {
+  let n = rng.rand(p.span) + p.base;
   while (--n) {
     for (;;) {
       const x = rng.rand(MAX - 2) + 1;
@@ -302,34 +306,39 @@ function addMoreDoors(rng: Lcg, b: Board): void {
   }
 }
 
-/** Genera la zona (x, y, z) del mundo `seed`. Puro y determinístico. Coordenadas: enteros de 32 bits sin signo. */
-export function generateZone(seed: number, x: number, y: number, z: number): Zone {
+/**
+ * Genera la zona (x, y, z) del nivel `level` del mundo `seed`. Puro y determinístico.
+ * Coordenadas: enteros de 32 bits sin signo.
+ */
+export function generateZone(seed: number, x: number, y: number, z: number, level = 0): Zone {
   seed >>>= 0;
   x >>>= 0;
   y >>>= 0;
   z >>>= 0;
-  const left = new Lcg(mix(seed, RngKind.SEAM_X, x - 1, x, y, z));
-  const right = new Lcg(mix(seed, RngKind.SEAM_X, x, x + 1, y, z));
-  const up = new Lcg(mix(seed, RngKind.SEAM_Y, y - 1, y, x, z));
-  const down = new Lcg(mix(seed, RngKind.SEAM_Y, y, y + 1, x, z));
+  const p = levelParams(level);
+  const m = (kind: RngKind, a: number, b: number, c: number, d: number) => new Lcg(mix(seed, kind, a, b, c, d, level));
+  const left = m(RngKind.SEAM_X, x - 1, x, y, z);
+  const right = m(RngKind.SEAM_X, x, x + 1, y, z);
+  const up = m(RngKind.SEAM_Y, y - 1, y, x, z);
+  const down = m(RngKind.SEAM_Y, y, y + 1, x, z);
   // Las puertas no dependen de z: la misma puerta existe en todas las capas, así se puede volver por ella.
-  const door = new Lcg(mix(seed, RngKind.DOORS, 0, x, y, 1));
-  const rng = new Lcg(mix(seed, RngKind.INTERIOR, 0, x, y, z));
+  const door = m(RngKind.DOORS, 0, x, y, 1);
+  const rng = m(RngKind.INTERIOR, 0, x, y, z);
 
   const b = new Board();
   let officesCapped = false;
-  addDoors(door, b);
+  if (p.doors) addDoors(door, b, p.doors);
   if (z !== 0) {
-    officesCapped = addOffices(rng, b);
+    officesCapped = addOffices(rng, b, p.offices);
     spaceFill(rng, b, -1, -1, true);
     ensureConnectedness(rng, b, -1, -1, true);
     connectEdge(left, b, W);
     connectEdge(right, b, E);
     connectEdge(up, b, N);
     connectEdge(down, b, S);
-    addMoreDoors(rng, b);
+    addMoreDoors(rng, b, p.extraOpenings);
   } else {
     removeEverything(b);
   }
-  return { seed, x, y, z, edges: b.e, officesCapped };
+  return { seed, x, y, z, level, edges: b.e, officesCapped };
 }

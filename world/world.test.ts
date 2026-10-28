@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
-import { Dir, Edge, generateZone, getStart, World, WORLD_V, ZONE_SIZE, type Zone } from './index';
+import { Dir, Edge, generateZone, getStart, levelParams, World, WORLD_V, ZONE_SIZE, type Zone } from './index';
 import { Lcg } from './lcg';
 
 const N = ZONE_SIZE;
@@ -78,34 +78,8 @@ describe('generateZone', () => {
       [1000, 2000, 7],
       [3, 4, 5],
       [77, 1, 0x40000000],
-    ]) {
-      const zone = generateZone(seed, x, y, z);
-      const seen = new Uint8Array(N * N);
-      const stack = [0];
-      seen[0] = 1;
-      let count = 1;
-      while (stack.length) {
-        const i = stack.pop()!;
-        const cx = i % N;
-        const cy = (i - cx) / N;
-        for (const [dx, dy, d] of [
-          [-1, 0, Dir.W],
-          [1, 0, Dir.E],
-          [0, -1, Dir.N],
-          [0, 1, Dir.S],
-        ] as const) {
-          const nx = cx + dx;
-          const ny = cy + dy;
-          const t = at(zone, cx, cy, d);
-          if (nx < 0 || ny < 0 || nx >= N || ny >= N || seen[ny * N + nx]) continue;
-          if (t !== Edge.OPEN && t !== Edge.DOOR) continue;
-          seen[ny * N + nx] = 1;
-          count++;
-          stack.push(ny * N + nx);
-        }
-      }
-      expect(count / (N * N)).toBeGreaterThan(0.99);
-    }
+    ])
+      expect(reachable(generateZone(seed, x, y, z))).toBeGreaterThan(0.99);
   });
 
   it('la capa z = 0 es un salón sin paredes', () => {
@@ -185,6 +159,117 @@ describe('golden (world_v 1)', () => {
         },
       ]
     `);
+  });
+});
+
+// Celdas de una zona que se pueden recorrer desde (0, 0) sin cruzar puertas, sobre el total.
+function reachable(zone: Zone): number {
+  const seen = new Uint8Array(N * N);
+  const stack = [0];
+  seen[0] = 1;
+  let count = 1;
+  while (stack.length) {
+    const i = stack.pop()!;
+    const cx = i % N;
+    const cy = (i - cx) / N;
+    for (const [dx, dy, d] of [
+      [-1, 0, Dir.W],
+      [1, 0, Dir.E],
+      [0, -1, Dir.N],
+      [0, 1, Dir.S],
+    ] as const) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      const t = at(zone, cx, cy, d);
+      if (nx < 0 || ny < 0 || nx >= N || ny >= N || seen[ny * N + nx]) continue;
+      if (t !== Edge.OPEN && t !== Edge.DOOR) continue;
+      seen[ny * N + nx] = 1;
+      count++;
+      stack.push(ny * N + nx);
+    }
+  }
+  return count / (N * N);
+}
+
+describe('Nivel 1 (Habitable Zone)', () => {
+  const seed = 20261028;
+  const zone = generateZone(seed, 1000, 2000, 7, 1);
+
+  it('es determinístico, distinto del Nivel 0 y sin puertas de capa', () => {
+    expect(generateZone(seed, 1000, 2000, 7, 1).edges).toEqual(zone.edges);
+    expect(fingerprint(zone)).not.toBe(fingerprint(generateZone(seed, 1000, 2000, 7, 0)));
+    expect(zone.edges.some(isPortal)).toBe(false);
+  });
+
+  it('es más abierto que el Nivel 0 y se recorre casi entero', () => {
+    const walls = (z: Zone) => z.edges.filter((e) => e === Edge.WALL).length;
+    expect(walls(zone)).toBeLessThan(walls(generateZone(seed, 1000, 2000, 7, 0)));
+    expect(reachable(zone)).toBeGreaterThan(0.99);
+  });
+
+  it('las zonas vecinas coinciden en el borde', () => {
+    const east = generateZone(seed, 1001, 2000, 7, 1);
+    const south = generateZone(seed, 1000, 2001, 7, 1);
+    for (let i = 0; i < N; i++) {
+      expect(at(zone, N - 1, i, Dir.E)).toBe(at(east, 0, i, Dir.W));
+      expect(at(zone, i, N - 1, Dir.S)).toBe(at(south, i, 0, Dir.N));
+    }
+  });
+
+  it('golden', () => {
+    expect(fingerprint(generateZone(1, 1110350384, 2386010651, 1341430631, 1))).toMatchInlineSnapshot(`"e6952374"`);
+  });
+});
+
+describe('noclip y pilares', () => {
+  const seed = 42;
+  const s = getStart(seed);
+  const zx = Math.floor(s.gx / N) * N;
+  const zy = Math.floor(s.gy / N) * N;
+
+  it('el noclip es raro, solo en paredes y el mismo visto desde los dos lados', () => {
+    const world = new World(seed);
+    let walls = 0;
+    let noclips = 0;
+    for (let cy = 0; cy < N; cy++)
+      for (let cx = 0; cx < N - 1; cx++) {
+        const gx = zx + cx;
+        const gy = zy + cy;
+        if (world.edge(gx, gy, s.z, Dir.E) !== Edge.WALL) {
+          expect(world.noclip(gx, gy, s.z, Dir.E)).toBe(false);
+          continue;
+        }
+        walls++;
+        const here = world.noclip(gx, gy, s.z, Dir.E);
+        expect(world.noclip(gx + 1, gy, s.z, Dir.W)).toBe(here);
+        if (here) noclips++;
+      }
+    const rate = levelParams(0).noclipRate;
+    expect(noclips).toBeGreaterThan(walls * rate * 0.5);
+    expect(noclips).toBeLessThan(walls * rate * 2);
+  });
+
+  it('el noclip lleva del Nivel 0 al 1, y el Nivel 1 no tiene', () => {
+    expect(levelParams(0).noclipTo).toBe(1);
+    const world = new World(seed);
+    for (let cx = 0; cx < N; cx++)
+      for (const d of [Dir.E, Dir.S]) expect(world.noclip(zx + cx, zy + 7, s.z, d, 1)).toBe(false);
+  });
+
+  it('los pilares van en la grilla de 3, en esquinas abiertas, y solo en el Nivel 1', () => {
+    const world = new World(seed);
+    let pillars = 0;
+    for (let cy = 1; cy < N; cy++)
+      for (let cx = 1; cx < N; cx++) {
+        const gx = zx + cx;
+        const gy = zy + cy;
+        expect(world.pillar(gx, gy, s.z, 0)).toBe(false);
+        if (!world.pillar(gx, gy, s.z, 1)) continue;
+        pillars++;
+        expect(gx % 3 === 0 && gy % 3 === 0).toBe(true);
+        expect(world.edge(gx - 1, gy, s.z, Dir.E, 1)).toBe(Edge.OPEN);
+      }
+    expect(pillars).toBeGreaterThan(50);
   });
 });
 

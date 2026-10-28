@@ -63,14 +63,16 @@ export const RngKind = {
   DOORS: 3,
   INTERIOR: 4,
   START: 5,
+  NOCLIP: 6,
+  PILLAR: 7,
 } as const;
 export type RngKind = (typeof RngKind)[keyof typeof RngKind];
 
 /**
- * `Mix` con seed: el resultado original se sala con la seed y el tipo de RNG. En TediusTimmy la seed solo elegía la
- * zona inicial; acá cambia el mundo entero.
+ * `Mix` con seed: el resultado original se sala con la seed, el tipo de RNG y el nivel. En TediusTimmy la seed solo
+ * elegía la zona inicial; acá cambia el mundo entero. El nivel 0 no suma nada a la sal: su mundo queda como estaba.
  */
-export function mix(seed: number, kind: RngKind, a: number, b: number, c: number, d: number): bigint {
-  const salt = harden((harden(BigInt(seed >>> 0)) + BigInt(kind)) & MASK64);
+export function mix(seed: number, kind: RngKind, a: number, b: number, c: number, d: number, level = 0): bigint {
+  const salt = harden((harden(BigInt(seed >>> 0)) + BigInt(kind + level * 256)) & MASK64);
   return harden(mix4(a, b, c, d) ^ salt);
 }
