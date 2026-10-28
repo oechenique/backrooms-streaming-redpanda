@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a170c" />
+    <title>Nivel 0</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #1a170c; color: #f1e7b8; }
+      body { font: 14px/1.4 ui-monospace, Menlo, Consolas, monospace; -webkit-user-select: none; user-select: none; }
+      canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+      #hud {
+        position: fixed; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left));
+        padding: 4px 8px; background: rgb(0 0 0 / 0.35); border-radius: 4px; pointer-events: none; white-space: pre;
+        font-size: 12px;
+      }
+      #overlay {
+        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 12px; padding: 16px; text-align: center; background: rgb(20 17 8 / 0.82); cursor: pointer;
+      }
+      #overlay h1 { margin: 0; font-size: 28px; letter-spacing: 0.08em; }
+      #overlay p { margin: 0; max-width: 32em; opacity: 0.8; }
+      #overlay[hidden] { display: none; }
+      .stick { position: fixed; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); }
+      #stick-base { width: 120px; height: 120px; border: 2px solid rgb(241 231 184 / 0.35); }
+      #stick-knob { width: 52px; height: 52px; background: rgb(241 231 184 / 0.35); }
+      .stick[hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <div id="stick-base" class="stick" hidden></div>
+    <div id="stick-knob" class="stick" hidden></div>
+    <div id="overlay">
+      <h1>NIVEL 0</h1>
+      <p class="desktop">Click para entrar. WASD o flechas para moverte, mouse para mirar, Shift para correr, Esc para salir.</p>
+      <p class="touch">Tocá para entrar. Mitad izquierda: caminar. Mitad derecha: mirar.</p>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
