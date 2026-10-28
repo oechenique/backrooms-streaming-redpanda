@@ -70,6 +70,7 @@ game/    render Three.js por bloques de 16×16 celdas, input, colisión, textura
 ### Cómo se juega
 - **Puertas de capa**: los marcos con hueco oscuro llevan a otra capa del mundo (z ± 1). Del otro lado está la misma
   puerta, pero volver por ella no siempre te deja donde estabas.
+  La Interferencia tarda unos segundos (4–7 s) en encontrarte en la capa nueva y vuelve más lejos.
 - **El laberinto cambia**: cada 15–30 s, un bloque de 16×16 celdas que no estás mirando cambia su interior. Antes de
   aplicar el cambio se verifica que no te deje encerrado.
 - **La Interferencia** no te ve: te oye. Caminar se oye de cerca, correr desde lejos y caminar en silencio no se oye.
@@ -86,7 +87,7 @@ Comunes: `event_id`, `ts` (UTC), `session` (UUID por partida), `seed`, `world_v`
 | `posicion` (cada 2 s) | `velocidad`, `humor` de la entidad |
 | `zona_cambio` | `zona` (`x,y,capa`), `via` (`caminando` o `puerta`) |
 | `laberinto_cambio` | `bloque_x`, `bloque_y`, `bloque_lado`, `capa_antes`, `capa_despues` |
-| `aparicion` / `deteccion` | `distancia_m` |
+| `aparicion` / `deteccion` | `distancia_m` (`null` si la entidad todavía no volvió después de una puerta) |
 | `persecucion_inicio` | `persecucion_id`, `distancia_m` |
 | `escape` / `captura` | `persecucion_id`, `duracion_s` (`captura` suma `humor`) |
 

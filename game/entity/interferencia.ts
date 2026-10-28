@@ -14,6 +14,10 @@ const W = 2 * R + 1;
 const REPATH_S = 0.5;
 const CAPTURE_M = 0.8;
 const EXPOSED_M = 6;
+/** Después de una puerta: segundos sin aparecer y celdas extra de distancia al volver. */
+const AWAY_MIN_S = 4;
+const AWAY_MAX_S = 7;
+const AWAY_EXTRA = 8;
 
 /** Por humor: velocidad (m/s), banda de distancia al jugador en celdas de camino, y cuánto se ve (0..1). */
 const BEHAVIOR: Record<Mood, { speed: number; band: [number, number]; visible: number }> = {
@@ -37,7 +41,9 @@ export interface Tick {
   /** Te oyó por primera vez desde la última cacería. */
   detected: boolean;
   captured: boolean;
-  /** Distancia en metros y paredes en medio (para el audio). */
+  /** Está en el mundo (false mientras vuelve después de una puerta). */
+  present: boolean;
+  /** Distancia en metros (Infinity si no está) y paredes en medio (para el audio). */
   distM: number;
   walls: number;
 }
@@ -58,6 +64,7 @@ export class Interferencia {
   private next: { rx: number; ry: number } | null = null;
   private lastHeard: { rx: number; ry: number } | null = null;
   private heardThisCycle = false;
+  private awayS = 0;
   private readonly rng = { next: Math.random };
 
   constructor(private readonly level: Level) {
@@ -76,12 +83,12 @@ export class Interferencia {
     return this.director.mood;
   }
 
-  /** Reaparece en la banda de su humor (al empezar, al cambiar de capa o si quedó encerrada). */
-  phase(px: number, pz: number): void {
+  /** Reaparece en la banda de su humor, corrida `extra` celdas más lejos (al empezar o si quedó encerrada). */
+  phase(px: number, pz: number, extra = 0): void {
     const prx = Math.floor(px / CELL);
     const pry = Math.floor(pz / CELL);
     this.bfs(prx, pry);
-    const [lo, hi] = BEHAVIOR[this.mood].band;
+    const [lo, hi] = BEHAVIOR[this.mood].band.map((d) => d + extra);
     const options: number[] = [];
     let farthest = 0;
     for (let i = 0; i < this.field.length; i++) {
@@ -98,8 +105,25 @@ export class Interferencia {
     this.repath = 0;
   }
 
+  /**
+   * El jugador cruzó una puerta: la señal tarda unos segundos en encontrarlo en la capa nueva y vuelve más lejos.
+   * Mientras tanto no oye ni atrapa; el director sigue corriendo (una cacería puede terminar en escape).
+   */
+  leave(): void {
+    this.awayS = AWAY_MIN_S + Math.random() * (AWAY_MAX_S - AWAY_MIN_S);
+    this.next = null;
+  }
+
   update(dt: number, player: { x: number; z: number; speed: number }): Tick {
     const from = this.mood;
+    if (this.awayS > 0) {
+      this.awayS -= dt;
+      tickDirector(this.director, { distM: Infinity, noise: 0, exposed: false, dtS: dt }, this.rng);
+      if (this.awayS <= 0) this.phase(player.x, player.z, AWAY_EXTRA);
+      this.animate(dt);
+      const mood = this.mood;
+      return { from, mood, detected: false, captured: false, present: this.awayS <= 0, distM: Infinity, walls: 2 };
+    }
     const distM = Math.hypot(this.x - player.x, this.z - player.z);
     const walls = wallsBetween(this.level, this, player);
     const noise = heardLoudness(this.level, player, this, player.speed);
@@ -122,7 +146,7 @@ export class Interferencia {
     this.move(dt, prx, pry);
     const captured = (mood === 'hunt' || mood === 'stalk') && distM < CAPTURE_M && walls === 0;
     this.animate(dt);
-    return { from, mood, detected, captured, distM, walls };
+    return { from, mood, detected, captured, present: true, distM, walls };
   }
 
   /** Orienta la silueta hacia la cámara (solo gira en y). */
@@ -223,7 +247,7 @@ export class Interferencia {
 
   private animate(dt: number): void {
     this.time += dt;
-    let target = BEHAVIOR[this.mood].visible;
+    let target = this.awayS > 0 ? 0 : BEHAVIOR[this.mood].visible;
     if (this.mood === 'stalk' && Math.random() < 0.08) target = 0; // en acecho titila
     this.visible += (target - this.visible) * Math.min(1, dt * 4);
     this.material.uniforms.uTime.value = this.time;

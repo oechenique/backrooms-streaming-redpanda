@@ -163,7 +163,7 @@ function crossDoor(dz: 1 | -1): void {
   level.enterLayer(level.z + dz);
   chunks.reset();
   prefetch();
-  entity.phase(player.x, player.z);
+  entity.leave();
   // Fundido corto: tapa el cambio de mundo mientras se arman los bloques.
   fade.style.transition = 'none';
   fade.style.opacity = '1';
@@ -193,12 +193,14 @@ const round1 = (v: number) => Math.round(v * 10) / 10;
 function updateEntity(dt: number): void {
   const t = entity.update(dt, player);
   const pos = where();
-  if (t.detected) events.emit('deteccion', pos, { distancia_m: round1(t.distM) });
+  // null mientras la entidad vuelve después de una puerta: todavía no está en el mundo.
+  const dist = t.present ? round1(t.distM) : null;
+  if (t.detected) events.emit('deteccion', pos, { distancia_m: dist });
   if (t.from !== t.mood) {
-    if (t.mood === 'stalk') events.emit('aparicion', pos, { distancia_m: round1(t.distM) });
+    if (t.mood === 'stalk') events.emit('aparicion', pos, { distancia_m: dist });
     if (t.mood === 'hunt') {
       chase = { id: uuid(), t0: performance.now() };
-      events.emit('persecucion_inicio', pos, { persecucion_id: chase.id, distancia_m: round1(t.distM) });
+      events.emit('persecucion_inicio', pos, { persecucion_id: chase.id, distancia_m: dist });
     }
     if (t.from === 'hunt' && chase) {
       events.emit('escape', pos, { persecucion_id: chase.id, duracion_s: round1((performance.now() - chase.t0) / 1000) });
@@ -216,7 +218,7 @@ function updateEntity(dt: number): void {
   const dim = flicker && Math.random() < flicker * 0.25 ? 0.25 + Math.random() * 0.4 : 1;
   lightMat.color.setScalar(dim);
   sky.intensity = 2.2 * (0.75 + 0.25 * dim);
-  const gain = { calm: 0.1, stalk: 0.5, hunt: 1, retreat: 0.25 }[t.mood] * 0.5 ** t.walls;
+  const gain = t.present ? { calm: 0.1, stalk: 0.5, hunt: 1, retreat: 0.25 }[t.mood] * 0.5 ** t.walls : 0;
   sound.update({ fear, exertion, flicker, yaw: player.yaw, entity: { dx: entity.x - player.x, dz: entity.z - player.z, gain } });
 }
 

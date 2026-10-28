@@ -89,3 +89,29 @@ describe('cambios del laberinto', () => {
     expect(canLeave(box, p.x, p.z)).toBe(false);
   });
 });
+
+describe('La Interferencia después de una puerta', () => {
+  it('no aparece ni atrapa por unos segundos y vuelve más lejos', async () => {
+    const { getStart, World } = await import('../../world');
+    const { Level } = await import('../level');
+    const { Interferencia } = await import('./interferencia');
+    const start = getStart(42);
+    const level = new Level(new World(42), start.gx, start.gy, start.z);
+    const player = { x: (start.gx - level.originGx + 0.5) * CELL, z: (start.gy - level.originGy + 0.5) * CELL, speed: RUN };
+    const entity = new Interferencia(level);
+    entity.director.mood = 'hunt';
+    entity.x = player.x; // pegada al jugador: sin la demora, lo atraparía ya
+    entity.z = player.z;
+    entity.leave();
+    for (let t = 0; t < 3.9; t += 0.1) {
+      const tick = entity.update(0.1, player);
+      expect(tick.present).toBe(false);
+      expect(tick.captured).toBe(false);
+    }
+    let back = entity.update(0.1, player);
+    for (let t = 0; !back.present && t < 4; t += 0.1) back = entity.update(0.1, player);
+    expect(back.present).toBe(true);
+    // Banda de cacería [10, 14] + 8 celdas de camino: en línea recta, bien lejos de la captura.
+    expect(Math.hypot(entity.x - player.x, entity.z - player.z)).toBeGreaterThan(3 * CELL);
+  });
+});
