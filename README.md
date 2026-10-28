@@ -9,10 +9,10 @@ Un Backrooms jugable donde cada paso, cada persecución y cada vez que te atrapa
 Juego (navegador / celu)
    │  eventos en batch (JSON, contrato v1)
    ▼
-Collector FastAPI ── inválidos ──► nivel0.eventos.dlq
+Collector FastAPI ── inválidos ──► backrooms.eventos.dlq
    │  válidos
    ▼
-Redpanda ── nivel0.eventos
+Redpanda ── backrooms.eventos
    │
    ▼
 Consumer Python ──► Bronze (Parquet) ──► Silver (sesiones, persecuciones)
@@ -33,21 +33,51 @@ El mundo no se guarda: es una función de `seed` y coordenadas. Con los eventos 
   - [x] F1b Worker, puertas de capa, laberinto que cambia, La Interferencia, audio y eventos a consola
   - [x] F1c Noclip al Nivel 1 (Habitable Zone) con el mismo `world/` y otros parámetros
   - [x] F1d Noclip más frecuente y visible, llegada segura, cuerpo y grito nuevos de La Interferencia
-- [ ] F2 Contrato + collector + Redpanda
+- [x] F2 Contrato + collector + Redpanda
 - [ ] F3 Procesamiento (Bronze / Silver)
 - [ ] F4 Gold con dbt
 - [ ] F5 El mapa de los perdidos
 - [ ] F6 Mobile y deploy
 
 ## Correr
-Requiere Node 20 o más nuevo.
+Requiere Node 20 o más nuevo y Docker (Docker Desktop en Windows/Mac).
 
 ```bash
+docker compose up --build -d   # Redpanda + Console + collector (primera vez: baja imágenes y construye)
 npm install
-npm run dev        # juego en http://localhost:5173 (también expuesto en la red local, para probar en el celu)
-npm test           # tests: generador (determinismo, costuras, golden), oído, director, colisión y puertas
-npm run build      # typecheck + build estático en dist/
+npm run dev                    # juego en http://localhost:5173 (también en la red local, para el celu)
 ```
+
+Jugá un rato y mirá los eventos en **Redpanda Console**: http://localhost:8080 → Topics → `backrooms.eventos`
+(los que no cumplen el contrato, con el motivo, en `backrooms.eventos.dlq`).
+
+```bash
+npm test           # tests TS: generador, oído, director, colisión, puertas, cola de envío y contrato
+npm run build      # typecheck + build estático en dist/
+docker compose down            # apaga todo (los eventos quedan en el volumen; `down -v` los borra)
+```
+
+Tests del collector (Python 3.12):
+```bash
+cd collector
+py -3.12 -m venv .venv          # en Linux/Mac: python3.12 -m venv .venv
+.venv/Scripts/pip install -r requirements-dev.txt   # Linux/Mac: .venv/bin/pip
+.venv/Scripts/python -m pytest -q
+```
+
+Puertos y tópicos se cambian copiando `.env.example` a `.env`.
+
+### Cómo viajan los eventos
+```
+juego ──(cada 2 s, lote JSON; sendBeacon al cerrar)──► /api/events (proxy de Vite, sin X-Forwarded-For)
+      ──► collector :8000 ── valida cada evento contra contracts/event.schema.json
+                           ├─ válido   ──► backrooms.eventos      (key = session, header recibido)
+                           └─ inválido ──► backrooms.eventos.dlq  (motivo + evento original)
+```
+- Si el collector o Redpanda no responden, el juego sigue: los eventos quedan en una cola (también en localStorage) y
+  se reintentan con espera creciente (2 s … 30 s). Con `?debug=1` el HUD muestra el tamaño de la cola.
+- Entrega **at-least-once**: un evento puede llegar dos veces; se deduplica por `event_id` en F3.
+- Privacidad: el collector corre sin access log y el proxy no agrega la IP.
 
 - **Seed**: `?seed=123` en la URL (entero de 0 a 4294967295). Sin seed se sortea una y queda escrita en la URL:
   recargar da el mismo mundo.
@@ -99,23 +129,22 @@ game/    render Three.js por bloques de 16×16 celdas, input, colisión, textura
 - **Puerta de capa o noclip**: la puerta es un hueco angosto y negro con marco de madera clara; la pared de noclip es
   el paño entero, con bandas de estática y color que se corren, destellos y transparencias.
 
-### Eventos (contrato borrador)
+### Eventos (contrato v1: `contracts/event.schema.json`)
 Comunes: `event_id`, `ts` (UTC), `session` (UUID por partida), `seed`, `world_v`, `level`, `type`, `x`, `y`
-(celda global con decimales), **`z`** (capa; propuesta nueva para el contrato), `client` (`platform`, `version`,
-`debug`), `data`. `world_v` es 3 desde que el Nivel 1 pasó a ser un estacionamiento.
+(celda global con decimales), `z` (capa), `client` (`platform`, `version`, `debug`), `data`. Todos obligatorios; un
+campo de más manda el evento a la DLQ. `world_v` es 3 desde que el Nivel 1 pasó a ser un estacionamiento.
+Ejemplos válidos e inválidos en `contracts/examples/`.
 
 | `type` | `data` |
 |---|---|
 | `sesion_inicio` / `sesion_fin` | `zona` / `motivo` (`captura` o `salida`) |
 | `posicion` (cada 2 s) | `velocidad`, `humor` de la entidad |
-| `zona_cambio` | `zona` (`x,y,capa`), `via` (`caminando` o `puerta`) |
+| `zona_cambio` | `zona` (`x,y,capa`), `via` (`caminando`, `puerta` o `noclip`) |
 | `laberinto_cambio` | `bloque_x`, `bloque_y`, `bloque_lado`, `capa_antes`, `capa_despues` |
 | `aparicion` / `deteccion` | `distancia_m` (`null` si la entidad todavía no volvió después de una puerta) |
 | `persecucion_inicio` | `persecucion_id`, `distancia_m` |
 | `escape` / `captura` | `persecucion_id`, `duracion_s`; `escape` suma `via` (`retirada` o `noclip`), `captura` suma `humor` |
 | `noclip` | `nivel_origen`, `nivel_destino` (el campo común `level` es el de origen; los eventos siguientes ya llevan el de destino) |
-
-`zona_cambio.via` también puede ser `noclip`.
 
 ## Créditos
 El generador del mundo es un port del de [TediusTimmy/BackRooms](https://github.com/TediusTimmy/BackRooms)
