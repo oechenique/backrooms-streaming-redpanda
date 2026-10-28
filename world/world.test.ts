@@ -121,6 +121,25 @@ describe('generateZone', () => {
 });
 
 describe('World', () => {
+  it('acepta zonas generadas afuera y no las vuelve a generar', () => {
+    const world = new World(9, 2);
+    const zone = generateZone(9, 1, 2, 3);
+    expect(world.has(1, 2, 3)).toBe(false);
+    world.put(zone);
+    expect(world.has(1, 2, 3)).toBe(true);
+    expect(world.zone(1, 2, 3)).toBe(zone);
+    expect(() => world.put(generateZone(8, 1, 2, 3))).toThrow();
+  });
+
+  it('descarta la zona más vieja al llenarse', () => {
+    const world = new World(9, 2);
+    world.zone(1, 1, 1);
+    world.zone(2, 1, 1);
+    world.zone(1, 1, 1); // la 1 pasa a ser la más reciente
+    world.zone(3, 1, 1);
+    expect([world.has(1, 1, 1), world.has(2, 1, 1), world.has(3, 1, 1)]).toEqual([true, false, true]);
+  });
+
   it('lee bordes con coordenadas globales, también al dar la vuelta', () => {
     const world = new World(1, 2);
     const zone = generateZone(1, 0xffffffff, 0, 5);
@@ -130,6 +149,13 @@ describe('World', () => {
 });
 
 describe('golden (world_v 1)', () => {
+  it('mantiene una zona que llega al tope de intentos de oficinas', () => {
+    // Seed 1, 14 zonas al este del arranque. En el original esta zona no termina de generarse.
+    const zone = generateZone(1, 1110350398, 2386010651, 1341430631);
+    expect(zone.officesCapped).toBe(true);
+    expect(fingerprint(zone)).toMatchInlineSnapshot(`"e0e321db"`);
+  });
+
   // Si este test falla, el generador cambió: o se revierte, o se sube WORLD_V y se actualizan los valores.
   it('mantiene el mundo de las seeds fijas', () => {
     expect(WORLD_V).toBe(1);

@@ -69,6 +69,8 @@ export interface Zone {
   readonly z: number;
   /** 4 bordes por celda: edges[(cy * ZONE_SIZE + cx) * 4 + dir]. */
   readonly edges: Uint8Array;
+  /** `addOffices` llegó al tope de intentos (en el original, bucle infinito). Solo informativo. */
+  readonly officesCapped: boolean;
 }
 
 const { WALL, OPEN, DOOR, DOOR_UP, DOOR_DOWN } = Edge;
@@ -154,7 +156,8 @@ function openWall(rng: Lcg, b: Board, x: number, y: number, [dx, dy, side, back]
   return true;
 }
 
-function addOffices(rng: Lcg, b: Board): void {
+// Devuelve true si abandonó por llegar al tope de intentos.
+function addOffices(rng: Lcg, b: Board): boolean {
   let n = rng.rand(96) + 128;
   while (--n) {
     let found = false;
@@ -175,8 +178,9 @@ function addOffices(rng: Lcg, b: Board): void {
         openWall(rng, b, x, y + rng.rand(h), STEPS[0]);
       }
     }
-    if (!found) return;
+    if (!found) return true;
   }
+  return false;
 }
 
 // ¿Se puede tallar desde (x, y) hacia `step`? Vecino dentro del tablero, sin visitar y con pared en medio.
@@ -313,9 +317,10 @@ export function generateZone(seed: number, x: number, y: number, z: number): Zon
   const rng = new Lcg(mix(seed, RngKind.INTERIOR, 0, x, y, z));
 
   const b = new Board();
+  let officesCapped = false;
   addDoors(door, b);
   if (z !== 0) {
-    addOffices(rng, b);
+    officesCapped = addOffices(rng, b);
     spaceFill(rng, b, -1, -1, true);
     ensureConnectedness(rng, b, -1, -1, true);
     connectEdge(left, b, W);
@@ -326,5 +331,5 @@ export function generateZone(seed: number, x: number, y: number, z: number): Zon
   } else {
     removeEverything(b);
   }
-  return { seed, x, y, z, edges: b.e };
+  return { seed, x, y, z, edges: b.e, officesCapped };
 }

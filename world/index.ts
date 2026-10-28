@@ -30,22 +30,45 @@ export function splitCell(g: number): { zone: number; cell: number } {
 /** Mundo de una seed, con caché LRU de zonas (cada una ocupa 256 KB). */
 export class World {
   private readonly cache = new Map<string, Zone>();
+  // Atajo: casi todas las consultas seguidas caen en la misma zona.
+  private last: Zone | null = null;
 
   constructor(
     readonly seed: number,
     private readonly cacheSize = 16,
   ) {}
 
+  has(x: number, y: number, z: number): boolean {
+    return this.cache.has(key(x, y, z));
+  }
+
+  /** Guarda una zona generada en otro lado (por ejemplo, en un Web Worker). */
+  put(zone: Zone): void {
+    if (zone.seed !== this.seed >>> 0) throw new Error(`zona de otra seed: ${zone.seed}`);
+    const k = key(zone.x, zone.y, zone.z);
+    this.cache.delete(k);
+    if (this.cache.size >= this.cacheSize) {
+      const oldest = this.cache.keys().next().value!;
+      if (this.cache.get(oldest) === this.last) this.last = null;
+      this.cache.delete(oldest);
+    }
+    this.cache.set(k, zone);
+  }
+
+  /** La zona pedida; si no está en caché, se genera acá mismo (sincrónico). */
   zone(x: number, y: number, z: number): Zone {
-    const key = `${x >>> 0},${y >>> 0},${z >>> 0}`;
-    let zone = this.cache.get(key);
+    const l = this.last;
+    if (l && l.x === x >>> 0 && l.y === y >>> 0 && l.z === z >>> 0) return l;
+    const k = key(x, y, z);
+    let zone = this.cache.get(k);
     if (zone) {
-      this.cache.delete(key);
+      this.cache.delete(k);
+      this.cache.set(k, zone);
     } else {
       zone = generateZone(this.seed, x, y, z);
-      if (this.cache.size >= this.cacheSize) this.cache.delete(this.cache.keys().next().value!);
+      this.put(zone);
     }
-    this.cache.set(key, zone);
+    this.last = zone;
     return zone;
   }
 
@@ -57,6 +80,8 @@ export class World {
     return zone.edges[(sy.cell * ZONE_SIZE + sx.cell) * 4 + dir] as Edge;
   }
 }
+
+const key = (x: number, y: number, z: number) => `${x >>> 0},${y >>> 0},${z >>> 0}`;
 
 export interface Start {
   /** Celda global de arranque. */
