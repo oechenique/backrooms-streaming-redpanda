@@ -28,10 +28,11 @@ El mundo no se guarda: es una función de `seed` y coordenadas. Con los eventos 
 
 ## Estado
 - [x] F0 Investigación de repos → [docs/RELEVAMIENTO.md](docs/RELEVAMIENTO.md). Motor: TypeScript + Vite + Three.js
-- [ ] F1 Juego jugable
+- [x] F1 Juego jugable
   - [x] F1a Generador `world/` (port de TediusTimmy con seed y `world_v`) + render Three.js con teclado y táctil
   - [x] F1b Worker, puertas de capa, laberinto que cambia, La Interferencia, audio y eventos a consola
   - [x] F1c Noclip al Nivel 1 (Habitable Zone) con el mismo `world/` y otros parámetros
+  - [x] F1d Noclip más frecuente y visible, llegada segura, cuerpo y grito nuevos de La Interferencia
 - [ ] F2 Contrato + collector + Redpanda
 - [ ] F3 Procesamiento (Bronze / Silver)
 - [ ] F4 Gold con dbt
@@ -54,7 +55,9 @@ npm run build      # typecheck + build estático en dist/
   arrastrando), Shift para correr, C para caminar en silencio, Esc para pausar.
 - **Celu**: mitad izquierda = joystick analógico (poco recorrido = en silencio, a fondo = corre), mitad derecha = mirar.
 - El HUD muestra seed, `world_v`, nivel, zona, capa y celda global. Con `?debug=1` suma ms por frame, draw calls y el
-  estado del director. Con `?debug=1&nivel=1` se arranca directo en el Nivel 1 (solo para revisar).
+  estado del director. Solo para revisar: `?debug=1&nivel=1` arranca en el Nivel 1 y `?debug=1&caza=1` arranca con
+  La Interferencia cazando (no emite `persecucion_inicio`). Los eventos de una partida con `debug` llevan
+  `client.debug: true`.
 - Los eventos salen a la consola del navegador como `[evento] {…}` (en F2 van al collector).
 
 Estructura:
@@ -77,15 +80,23 @@ game/    render Three.js por bloques de 16×16 celdas, input, colisión, textura
 - **La Interferencia** no te ve: te oye. Caminar se oye de cerca, correr desde lejos y caminar en silencio no se oye.
   Las paredes atenúan el ruido. Cuando acecha, las luces titilan; si te caza, corré o escondete en silencio.
   Una cacería dura hasta 30 s; si no te atrapa, se retira.
-- **Noclip**: algunas paredes del Nivel 0 (≈ 1 de cada 1.500, siempre las mismas para una seed) titilan. Si te metés en
-  una, caés al **Nivel 1**, en la misma posición y capa. Las puertas siguen siendo el cambio de capa dentro de un nivel.
+  Es un humanoide estirado y flaco, de brazos que le pasan las rodillas y cabeza sin rasgos, hecho de carne podrida y
+  estática. Cuando te caza, **grita**: un alarido sintético en tritono con quiebres de voz, gruñido, feedback de
+  radio y zumbido eléctrico. Una sola variable de proximidad maneja el grito y el cuerpo: al acercarse, el grito se
+  agudiza, se desafina y se satura, y el cuerpo se deforma, se desgarra en bandas y salta, con los cortes del audio y de
+  la imagen sincronizados.
+- **Noclip**: algunas paredes del Nivel 0 (≈ 1 de cada 300, siempre las mismas para una seed) titilan con destellos que
+  atraviesan la niebla. Si te metés en una, caés al **Nivel 1**, en la misma posición y capa; si ahí hay una pared, un
+  pilar o una celda encerrada, aparecés en la celda caminable más cercana. Las puertas siguen siendo el cambio de capa
+  dentro de un nivel.
 - **Nivel 1 — Habitable Zone** ([wiki](https://backrooms-wiki.wikidot.com/level-1), CC BY-SA 3.0): salones de
   concreto con pilares unidos por pasillos, charcos, caños en el techo, luz fría escasa, cortes de luz de unos segundos
   y golpes en las cañerías. No tiene puertas de capa ni noclip (por ahora es el último nivel).
 
 ### Eventos (contrato borrador)
 Comunes: `event_id`, `ts` (UTC), `session` (UUID por partida), `seed`, `world_v`, `level`, `type`, `x`, `y`
-(celda global con decimales), **`z`** (capa; propuesta nueva para el contrato), `client`, `data`.
+(celda global con decimales), **`z`** (capa; propuesta nueva para el contrato), `client` (`platform`, `version`,
+`debug`), `data`. `world_v` es 2 desde que cambió la frecuencia de noclip.
 
 | `type` | `data` |
 |---|---|

@@ -23,7 +23,7 @@ export const LEVELS: readonly LevelParams[] = [
     doors: { base: 1024, span: 1024 },
     offices: { base: 128, span: 96, min: 8, sizeSpan: 16 },
     extraOpenings: { base: 1024, span: 2048 },
-    noclipRate: 1 / 1500,
+    noclipRate: 1 / 300,
     noclipTo: 1,
     pillarRate: 0,
   },

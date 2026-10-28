@@ -11,8 +11,10 @@ export { Dir, Edge, generateZone, levelParams, LEVELS, ZONE_SIZE, type LevelPara
 /**
  * Versión del generador. Cambia cada vez que una misma seed pasa a dar otro mundo; los eventos la llevan
  * para que el mapa de los perdidos reconstruya la partida con el algoritmo correcto.
+ * - 1: port de TediusTimmy con seed (F1a); Nivel 1 y noclip a 1/1500 (F1c).
+ * - 2: noclip a 1/300 paredes. La geometría de los niveles 0 y 1 no cambia; cambian las paredes de noclip.
  */
-export const WORLD_V = 1;
+export const WORLD_V = 2;
 
 /** Celdas por lado de una capa: 2^32 zonas × 256. Las coordenadas globales dan la vuelta acá. */
 export const LAYER_CELLS = 2 ** 32 * ZONE_SIZE;

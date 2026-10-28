@@ -1,6 +1,8 @@
 // Todo el audio se sintetiza en vivo con WebAudio: zumbido de los tubos, pasos, respiración y la estática de
 // La Interferencia. Ni un archivo de sonido. Diseño propio.
 
+import { Scream, setPos } from './entity/scream';
+
 export interface AudioFrame {
   /** Miedo 0..1 (acelera y sube la respiración). */
   fear: number;
@@ -14,6 +16,8 @@ export interface AudioFrame {
   flicker: number;
   /** Corte de luz: los tubos (y su zumbido) se apagan. */
   blackout: boolean;
+  /** Señal de La Interferencia (signal.ts): la misma que rompe la imagen. */
+  signal: { threat: number; burst: number; cut: boolean };
 }
 
 export class Sound {
@@ -26,6 +30,7 @@ export class Sound {
   private breath!: { gain: GainNode; filter: BiquadFilterNode };
   private staticOut!: { gain: GainNode; panner: PannerNode; filter: BiquadFilterNode };
   private nextBreath = 0;
+  private scream: Scream | null = null;
   private inhale = true;
 
   /** Hay que llamarlo desde un gesto del usuario (click o toque): los navegadores lo exigen. */
@@ -142,9 +147,27 @@ export class Sound {
   }
 
   /** Golpe de estática al ser atrapado. */
+  /** Pausa: congela todo el audio (start() lo reanuda). */
+  pause(): void {
+    void this.ctx?.suspend();
+  }
+
+  /** Empieza el grito (al iniciarse la persecución). */
+  screamStart(): void {
+    if (this.ctx && !this.scream) this.scream = new Scream(this.ctx, this.master, this.noise);
+  }
+
+  /** Termina el grito (escape o retirada). */
+  screamStop(): void {
+    this.scream?.stop();
+    this.scream = null;
+  }
+
   capture(): void {
     const ctx = this.ctx;
     if (!ctx) return;
+    this.scream?.peak();
+    this.scream = null;
     const t = ctx.currentTime;
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
@@ -173,8 +196,9 @@ export class Sound {
     const lx = f.entity.dx * cos - f.entity.dz * sin;
     const lz = f.entity.dx * sin + f.entity.dz * cos;
     setPos(this.staticOut.panner, lx, 0, lz);
-    const crackle = 0.6 + 0.4 * Math.random();
-    this.staticOut.gain.gain.setTargetAtTime(f.entity.gain * crackle * 0.6, t, 0.03);
+    const crackle = (0.6 + 0.4 * Math.random()) * (1 + 1.5 * f.signal.burst);
+    this.staticOut.gain.gain.setTargetAtTime(f.signal.cut ? 0 : f.entity.gain * crackle * 0.6, t, 0.01);
+    this.scream?.update({ ...f.signal, lx, lz });
     this.staticOut.filter.frequency.setTargetAtTime(1800 + Math.random() * 2400, t, 0.02);
 
     // Respiración: se oye con miedo o cansancio; más rápida y fuerte cuanto más.
@@ -200,16 +224,5 @@ export class Sound {
     src.loop = true;
     src.start();
     return src;
-  }
-}
-
-// Safari viejo no tiene positionX/Y/Z como AudioParam.
-function setPos(p: PannerNode, x: number, y: number, z: number): void {
-  if (p.positionX) {
-    p.positionX.value = x;
-    p.positionY.value = y;
-    p.positionZ.value = z;
-  } else {
-    p.setPosition(x, y, z);
   }
 }

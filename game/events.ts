@@ -35,7 +35,8 @@ export interface GameEvent {
   y: number;
   /** Capa del mundo. Propuesta para el contrato: sin la capa no se puede reconstruir el mapa. */
   z: number;
-  client: { platform: 'desktop' | 'touch'; version: string };
+  /** `debug`: la partida corrió con ?debug=1 (puede tener nivel o caza forzados); el pipeline la puede filtrar. */
+  client: { platform: 'desktop' | 'touch'; version: string; debug: boolean };
   data: Record<string, unknown>;
 }
 
@@ -59,6 +60,7 @@ export class Events {
   constructor(
     private readonly seed: number,
     private readonly platform: 'desktop' | 'touch',
+    private readonly debug = false,
   ) {}
 
   emit(type: EventType, pos: { x: number; y: number; z: number }, data: Record<string, unknown> = {}): GameEvent {
@@ -73,7 +75,7 @@ export class Events {
       x: pos.x,
       y: pos.y,
       z: pos.z,
-      client: { platform: this.platform, version: CLIENT_VERSION },
+      client: { platform: this.platform, version: CLIENT_VERSION, debug: this.debug },
       data,
     };
     this.buffer.push(event);

@@ -3,6 +3,8 @@ import { getStart, levelParams, World, WORLD_V, ZONE_SIZE } from '../world';
 import { Sound } from './audio';
 import { Chunks } from './chunks';
 import { Interferencia } from './entity/interferencia';
+import { Signal, threatOf } from './entity/signal';
+import { safeLanding } from './landing';
 import { Events, uuid } from './events';
 import { Input } from './input';
 import { CELL, CHUNK, Level } from './level';
@@ -39,7 +41,7 @@ const loader = new ZoneLoader(world);
 const startLevel = debug && new URL(location.href).searchParams.get('nivel') === '1' ? 1 : 0;
 const level = new Level(world, start.gx, start.gy, start.z, startLevel);
 const player = new Player(level, (start.gx - level.originGx + 0.5) * CELL, (start.gy - level.originGy + 0.5) * CELL);
-const events = new Events(seed, touch ? 'touch' : 'desktop');
+const events = new Events(seed, touch ? 'touch' : 'desktop', debug);
 events.level = startLevel;
 const sound = new Sound();
 player.onStep = (speed) => sound.step(speed);
@@ -91,6 +93,9 @@ function applyTheme(): void {
 }
 
 const entity = new Interferencia(level);
+// Una sola variable de proximidad para el grito, el cuerpo y las luces (ver signal.ts).
+const signal = new Signal();
+let screaming = false;
 scene.add(entity.mesh);
 
 const input = new Input(canvas, $('#stick-base'), $('#stick-knob'));
@@ -152,6 +157,9 @@ status.textContent = 'Cargando…';
 // La zona de arranque viene del worker; el resto se precarga mientras se lee el cartel.
 void loader.load(Math.floor(start.gx / ZONE_SIZE), Math.floor(start.gy / ZONE_SIZE), start.z, startLevel).then(() => {
   prefetch();
+  // Solo para revisar el grito y el cuerpo: ?debug=1&caza=1 arranca con la entidad cazando. No emite
+  // persecucion_inicio (sería un evento falso); el escape tampoco sale, porque no hay persecución abierta.
+  if (debug && new URL(location.href).searchParams.get('caza') === '1') entity.director.mood = 'hunt';
   entity.phase(player.x, player.z);
   zoneKey = zoneKeyOfPlayer();
   phase = 'ready';
@@ -175,6 +183,7 @@ overlay.addEventListener('click', () => {
 document.addEventListener('pointerlockchange', () => {
   if (!touch && document.pointerLockElement !== canvas && phase === 'playing') {
     phase = 'paused';
+    sound.pause();
     overlay.hidden = false;
   }
 });
@@ -197,6 +206,10 @@ function noclip(): void {
   level.enterLevel(to);
   events.level = to;
   applyTheme();
+  // Misma posición global en el nivel nuevo; si ahí hay una pared o un pilar, a la celda caminable más cercana.
+  const landing = safeLanding(level, player.x, player.z);
+  player.x = landing.x;
+  player.z = landing.z;
   prefetch();
   entity.leave();
   blackoutLeft = 0;
@@ -251,18 +264,39 @@ function updateEntity(dt: number): void {
   }
   if (t.captured) return capture();
 
+  // El grito empieza con la persecución (mismo frame que persecucion_inicio) y se corta si la entidad deja de
+  // cazar o desaparece tras una puerta o un noclip.
+  const scream = t.mood === 'hunt' && t.present;
+  if (scream && !screaming) sound.screamStart();
+  if (!scream && screaming) sound.screamStop();
+  screaming = scream;
+  signal.update(dt, threatOf(t.mood, t.distM, t.present));
+  entity.glitch(signal, dt);
+
   // Miedo, cansancio, luces y audio.
   const near = (r: number) => Math.max(0, 1 - Math.min(t.distM, r) / r);
   const target = t.mood === 'hunt' ? 0.6 + 0.4 * near(25) : t.mood === 'stalk' ? 0.25 + 0.35 * near(15) : 0;
   fear += (target - fear) * Math.min(1, dt * (target > fear ? 2 : 0.3));
   exertion = Math.max(0, Math.min(1, exertion + (player.speed > 2.5 ? 0.12 : -0.08) * dt));
-  const flicker = t.mood === 'calm' || t.mood === 'retreat' ? 0 : near(15) * (t.mood === 'hunt' ? 1 : 0.6);
+  // Las luces también se rompen con las ráfagas de la señal.
+  const flicker = Math.max(
+    t.mood === 'calm' || t.mood === 'retreat' ? 0 : near(15) * (t.mood === 'hunt' ? 1 : 0.6),
+    signal.burst * signal.threat,
+  );
   const blackout = updateBlackout(dt);
   const dim = blackout ? 0.03 : flicker && Math.random() < flicker * 0.25 ? 0.25 + Math.random() * 0.4 : 1;
   (theme.style.mats.light as THREE.MeshBasicMaterial).color.setScalar(dim);
   sky.intensity = theme.sky.intensity * (blackout ? 0.12 : 0.75 + 0.25 * dim);
   const gain = t.present ? { calm: 0.1, stalk: 0.5, hunt: 1, retreat: 0.25 }[t.mood] * 0.5 ** t.walls : 0;
-  sound.update({ fear, exertion, flicker, blackout, yaw: player.yaw, entity: { dx: entity.x - player.x, dz: entity.z - player.z, gain } });
+  sound.update({
+    fear,
+    exertion,
+    flicker,
+    blackout,
+    signal,
+    yaw: player.yaw,
+    entity: { dx: entity.x - player.x, dz: entity.z - player.z, gain },
+  });
 }
 
 // Cortes de luz de 2–5 s cada 40–90 s y golpes en las cañerías cada 6–18 s, si el nivel los tiene.
@@ -280,11 +314,14 @@ function updateBlackout(dt: number): boolean {
   return false;
 }
 
-// Las paredes de noclip titilan: casi siempre se ven normales, a ratos se desvanecen y brillan.
-function flickerNoclip(): void {
-  const glitch = Math.random() < 0.12;
-  noclipMaterial.opacity = glitch ? 0.3 + Math.random() * 0.5 : 1;
-  noclipMaterial.emissive.setScalar(glitch ? 0.1 + Math.random() * 0.2 : 0);
+// Las paredes de noclip titilan: un destello fuerte cada ~1 s, con ráfagas de parpadeo entre medio.
+let noclipBurst = 0;
+function flickerNoclip(dt: number): void {
+  noclipBurst -= dt;
+  if (noclipBurst < -0.6 - Math.random() * 0.8) noclipBurst = 0.25 + Math.random() * 0.3;
+  const glitch = noclipBurst > 0 ? Math.random() < 0.6 : Math.random() < 0.04;
+  noclipMaterial.opacity = glitch ? 0.25 + Math.random() * 0.45 : 1;
+  noclipMaterial.emissiveIntensity = glitch ? 0.5 + Math.random() * 0.6 : 0.08;
 }
 
 let hudText = '';
@@ -331,7 +368,7 @@ renderer.setAnimationLoop((now) => {
     }
   }
   if (phase !== 'loading') chunks.update(player.x, player.z);
-  if (levelParams(level.levelNo).noclipRate) flickerNoclip();
+  if (levelParams(level.levelNo).noclipRate) flickerNoclip(dt);
   camera.position.set(player.x, player.eyeY, player.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
   entity.face(camera);

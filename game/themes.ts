@@ -18,8 +18,17 @@ export interface Theme {
   clanks: boolean;
 }
 
-/** Material compartido de las paredes de noclip: el que llama lo hace titilar en cada frame. */
-export const noclipMaterial = new THREE.MeshLambertMaterial({ map: wallpaper(), transparent: true });
+/**
+ * Material compartido de las paredes de noclip: el que llama lo hace titilar en cada frame. Sin niebla, para que el
+ * titileo se vea desde lejos (hasta donde llegan los bloques cargados) y no se pierda en la bruma amarilla.
+ */
+export const noclipMaterial = new THREE.MeshLambertMaterial({
+  map: wallpaper(),
+  transparent: true,
+  fog: false,
+  emissive: 0xfff1c4,
+  emissiveIntensity: 0,
+});
 
 function level0(): Theme {
   const mats: Materials = {

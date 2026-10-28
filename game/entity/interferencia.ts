@@ -1,13 +1,22 @@
-// La Interferencia: vive en la señal. No te ve, te oye. Diseño propio (nombre, forma, reglas).
+// La Interferencia: vive en la señal. No te ve, te oye. Diseño propio (nombre, forma, reglas, cuerpo y grito).
 // El director (director.ts, de liminal) decide el humor; acá está el "cerebro chico": cómo se mueve por el
 // laberinto en cada humor, cuándo te atrapa y cómo se ve.
+//
+// Cuerpo: humanoide desproporcionadamente estirado y flaco, brazos que le llegan debajo de las rodillas, dedos
+// largos, cabeza alargada sin ojos ni boca. La piel mezcla carne descompuesta con estática, ruido analógico y
+// scanlines. Cuanto más cerca (la misma `threat` que deforma el grito), más se rompe: tirones, desgarros en bandas,
+// aberración cromática, bloques que se invierten o faltan durante los cortes, y saltos de posición.
 
 import * as THREE from 'three';
 import { Dir } from '../../world';
 import { CELL, type Level } from '../level';
 import { makeDirector, NOISE_GATE, tickDirector, type Director, type Mood } from './director';
 import { heardLoudness, wallsBetween } from './hearing';
+import type { Signal } from './signal';
 
+/** Tamaño del cuerpo en metros (casi toca el techo de 2,7 m). */
+const BODY_W = 1.7;
+const BODY_H = 2.6;
 /** Radio de la ventana de búsqueda de caminos, en celdas (81×81 alrededor del jugador). */
 const R = 40;
 const W = 2 * R + 1;
@@ -65,17 +74,25 @@ export class Interferencia {
   private lastHeard: { rx: number; ry: number } | null = null;
   private heardThisCycle = false;
   private awayS = 0;
+  private jumpLeft = 0;
+  private jumpOff = 0;
   private readonly rng = { next: Math.random };
 
   constructor(private readonly level: Level) {
     this.material = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
+      uniforms: {
+        uTime: { value: 0 },
+        uVisible: { value: 0 },
+        uThreat: { value: 0 },
+        uBurst: { value: 0 },
+        uCut: { value: 0 },
+      },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
       transparent: true,
       depthWrite: false,
     });
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.3), this.material);
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(BODY_W, BODY_H), this.material);
     this.mesh.frustumCulled = false;
   }
 
@@ -149,10 +166,27 @@ export class Interferencia {
     return { from, mood, detected, captured, present: true, distM, walls };
   }
 
-  /** Orienta la silueta hacia la cámara (solo gira en y). */
+  /** La señal (la misma que deforma el grito) rompe el cuerpo; los saltos lo corren de costado un instante. */
+  glitch(signal: Signal, dt: number): void {
+    const u = this.material.uniforms;
+    u.uThreat.value = signal.threat;
+    u.uBurst.value = signal.burst;
+    u.uCut.value = signal.cut ? 1 : 0;
+    this.jumpLeft -= dt;
+    if (signal.jump) {
+      this.jumpLeft = 0.08 + 0.1 * Math.random();
+      this.jumpOff = (Math.random() * 2 - 1) * (0.2 + 0.5 * signal.threat);
+    }
+  }
+
+  /** Orienta el cuerpo hacia la cámara (solo gira en y), con el salto de costado si hay uno en curso. */
   face(camera: THREE.Camera): void {
-    this.mesh.position.set(this.x, 1.15, this.z);
-    this.mesh.rotation.y = Math.atan2(camera.position.x - this.x, camera.position.z - this.z);
+    const dx = camera.position.x - this.x;
+    const dz = camera.position.z - this.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const off = this.jumpLeft > 0 ? this.jumpOff : 0;
+    this.mesh.position.set(this.x + (dz / len) * off, BODY_H / 2, this.z - (dx / len) * off);
+    this.mesh.rotation.y = Math.atan2(dx, dz);
   }
 
   private move(dt: number, prx: number, pry: number): void {
@@ -267,25 +301,108 @@ void main() {
 }
 `;
 
-// Silueta alta y angosta hecha de estática, con líneas que se corren como una señal mal sintonizada.
+// Cuerpo por campos de distancia (cápsulas) en metros, sobre un plano de BODY_W × BODY_H.
+// k = agresividad: amenaza + ráfaga. Con k alto, tirones, desgarros y aberración.
 const FRAGMENT = /* glsl */ `
 uniform float uTime;
 uniform float uVisible;
+uniform float uThreat;
+uniform float uBurst;
+uniform float uCut;
 varying vec2 vUv;
 varying float vDepth;
+
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float seg(vec2 p, vec2 a, vec2 b, float r) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h) - r;
+}
+
+float body(vec2 p, float t, float k) {
+  float tw = (hash(vec2(floor(t * 18.0), 3.0)) - 0.5) * k; // tirón
+  float sway = sin(t * 1.3) * 0.03;
+  vec2 chest = vec2(sway * 0.5 + tw * 0.05, 1.95);
+  vec2 neckTop = chest + vec2(tw * 0.08, 0.2);
+  float d = seg(p, vec2(0.0, 1.25), vec2(0.0, 1.55), 0.055);
+  d = min(d, seg(p, vec2(0.0, 1.55), chest, 0.075));
+  d = min(d, seg(p, chest, neckTop, 0.028));
+  // cabeza alargada, sin rasgos, que se tuerce
+  vec2 q = p - (neckTop + vec2(0.02 + tw * 0.1, 0.17));
+  float ang = 0.25 * sin(t * 0.7) + tw * 0.6;
+  q = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * q;
+  d = min(d, (length(q / vec2(0.075, 0.18)) - 1.0) * 0.075);
+  for (int i = 0; i < 2; i++) {
+    float sx = i == 0 ? -1.0 : 1.0;
+    // piernas largas y flacas
+    vec2 knee = vec2(sx * 0.09, 0.66);
+    d = min(d, seg(p, vec2(sx * 0.06, 1.27), knee, 0.035));
+    d = min(d, seg(p, knee, vec2(sx * 0.13, 0.03), 0.028));
+    // brazos que llegan debajo de las rodillas
+    float swing = sin(t * 1.1 + sx) * 0.04 + (hash(vec2(floor(t * 22.0), sx)) - 0.5) * 0.25 * k;
+    vec2 sh = chest + vec2(sx * 0.17, -0.03);
+    vec2 el = sh + vec2(sx * (0.12 + swing * 0.5), -0.5);
+    vec2 wr = el + vec2(-sx * 0.02 + swing, -0.62);
+    d = min(d, seg(p, sh, el, 0.028));
+    d = min(d, seg(p, el, wr, 0.022));
+    // dedos largos
+    for (int f = 0; f < 3; f++) {
+      float ff = float(f) - 1.0;
+      d = min(d, seg(p, wr, wr + vec2(sx * 0.02 + ff * 0.05 + swing * 0.4, -0.3 - abs(ff) * 0.04), 0.008));
+    }
+  }
+  return d;
+}
+
 void main() {
-  float line = floor(vUv.y * 90.0);
-  float frame = floor(uTime * 24.0);
+  float t = uTime;
+  float k = clamp(uThreat + uBurst * 0.8, 0.0, 1.5);
+  float frame = floor(t * 24.0);
   vec2 uv = vUv;
-  uv.x += (hash(vec2(line, frame)) - 0.5) * 0.12 * (1.2 - uVisible);
-  vec2 body = (uv - vec2(0.5, 0.42)) / vec2(0.2, 0.42);
-  vec2 head = (uv - vec2(0.5, 0.88)) / vec2(0.09, 0.07);
-  float mask = max(1.0 - smoothstep(0.75, 1.0, length(body)), 1.0 - smoothstep(0.7, 1.0, length(head)));
-  float n = hash(floor(uv * vec2(70.0, 160.0)) + frame);
+  // desgarros: bandas horizontales que se corren, más y más anchas cuanto más cerca
+  float band = floor(uv.y * (12.0 + 30.0 * k));
+  float tear = step(1.0 - (0.08 + 0.5 * k), hash(vec2(band, frame)));
+  uv.x += tear * (hash(vec2(band, frame + 7.0)) - 0.5) * (0.1 + 0.5 * k);
+  // temblor fino de señal mal sintonizada
+  uv.x += (hash(vec2(floor(uv.y * 140.0), frame)) - 0.5) * 0.012 * (0.5 + k);
+  vec2 p = vec2((uv.x - 0.5) * ${BODY_W.toFixed(2)}, uv.y * ${BODY_H.toFixed(2)});
+  // deformación orgánica violenta
+  p.x += sin(p.y * 9.0 + t * (3.0 + 25.0 * k)) * 0.02 * k;
+  p.y += sin(p.x * 14.0 + t * 20.0) * 0.015 * k;
+  // aberración cromática: cada canal ve el cuerpo corrido
+  float ab = 0.008 + 0.05 * k;
+  float e = 0.012 + 0.02 * k;
+  vec3 m = vec3(
+    smoothstep(e, -e, body(p + vec2(ab, 0.0), t, k)),
+    smoothstep(e, -e, body(p, t, k)),
+    smoothstep(e, -e, body(p - vec2(ab, 0.0), t, k))
+  );
+  float mask = max(m.r, max(m.g, m.b));
+  if (mask < 0.01) discard;
+  // carne descompuesta: manchas, llagas y venas oscuras
+  vec3 flesh = mix(vec3(0.20, 0.11, 0.09), vec3(0.36, 0.33, 0.24), noise(p * 9.0));
+  flesh = mix(flesh, vec3(0.08, 0.03, 0.03), smoothstep(0.55, 0.75, noise(p * 31.0 + 4.0)));
+  float vein = smoothstep(0.03, 0.0, abs(noise(p * 14.0 + vec2(0.0, t * 0.2)) - 0.5));
+  flesh = mix(flesh, vec3(0.05, 0.02, 0.04), vein * 0.7);
+  // estática y scanlines encima
+  float st = hash(floor(uv * vec2(90.0, 220.0)) + frame);
+  vec3 col = mix(flesh, vec3(st), clamp(0.3 + 0.45 * k, 0.0, 0.95));
+  col *= 0.75 + 0.25 * sin(uv.y * 900.0 + t * 40.0);
+  // durante un corte: bloques que faltan o se invierten
+  float blk = hash(floor(vec2(uv.x * 8.0, uv.y * 20.0)) + frame);
+  float drop = uCut * step(0.45, blk);
+  col = mix(col, 1.0 - col, uCut * step(0.8, blk));
+  col *= m * 1.15;
   float fade = 1.0 - smoothstep(6.0, 28.0, vDepth);
-  float a = mask * uVisible * fade * (0.55 + 0.45 * n);
+  float a = mask * uVisible * fade * (1.0 - drop) * (0.75 + 0.25 * st);
   if (a < 0.02) discard;
-  gl_FragColor = vec4(vec3(0.08 + 0.85 * n), a);
+  gl_FragColor = vec4(col, a);
 }
 `;

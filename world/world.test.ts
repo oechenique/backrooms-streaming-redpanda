@@ -122,7 +122,7 @@ describe('World', () => {
   });
 });
 
-describe('golden (world_v 1)', () => {
+describe('golden (world_v 2)', () => {
   it('mantiene una zona que llega al tope de intentos de oficinas', () => {
     // Seed 1, 14 zonas al este del arranque. En el original esta zona no termina de generarse.
     const zone = generateZone(1, 1110350398, 2386010651, 1341430631);
@@ -132,7 +132,7 @@ describe('golden (world_v 1)', () => {
 
   // Si este test falla, el generador cambió: o se revierte, o se sube WORLD_V y se actualizan los valores.
   it('mantiene el mundo de las seeds fijas', () => {
-    expect(WORLD_V).toBe(1);
+    expect(WORLD_V).toBe(2);
     const got = [1, 42, 20261028].map((seed) => {
       const s = getStart(seed);
       return { ...s, zone: fingerprint(generateZone(seed, Math.floor(s.gx / N), Math.floor(s.gy / N), s.z)) };
@@ -254,6 +254,25 @@ describe('noclip y pilares', () => {
     const world = new World(seed);
     for (let cx = 0; cx < N; cx++)
       for (const d of [Dir.E, Dir.S]) expect(world.noclip(zx + cx, zy + 7, s.z, d, 1)).toBe(false);
+  });
+
+  it('golden: paredes de noclip de una zona (world_v 2)', () => {
+    // Si falla, cambió qué paredes dejan hacer noclip: se sube WORLD_V y se actualiza el valor.
+    const world = new World(seed);
+    const found: string[] = [];
+    for (let cy = 0; cy < N; cy++)
+      for (let cx = 0; cx < N - 1; cx++) {
+        if (world.noclip(zx + cx, zy + cy, s.z, Dir.E)) found.push(`${cx},${cy},E`);
+        if (cy < N - 1 && world.noclip(zx + cx, zy + cy, s.z, Dir.S)) found.push(`${cx},${cy},S`);
+      }
+    let h = 0x811c9dc5;
+    for (const ch of found.join(';')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+    expect({ count: found.length, hash: (h >>> 0).toString(16) }).toMatchInlineSnapshot(`
+      {
+        "count": 150,
+        "hash": "e089ba85",
+      }
+    `);
   });
 
   it('los pilares van en la grilla de 3, en esquinas abiertas, y solo en el Nivel 1', () => {

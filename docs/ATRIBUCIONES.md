@@ -75,7 +75,9 @@ regla 2) y [dabardibid/Budget-Backrooms](https://github.com/dabardibid/Budget-Ba
 
 ## Lo que es propio
 - La entidad **La Interferencia** (diseño, nombre, comportamiento y sonido). El oído y el director parten del código
-  MIT de liminal (ver arriba); la criatura y sus reglas son nuestras.
+  MIT de liminal (ver arriba); la criatura y sus reglas son nuestras. El cuerpo (campos de distancia en un shader) y
+  el grito (síntesis WebAudio: tritono por formantes, quiebres de voz, feedback de radio, bitcrush) son procedurales
+  y propios: no se usaron grabaciones, muestras ni diseños de otras entidades, ni nada de la serie de Kane Pixels.
 - Todo el audio (sintetizado en vivo).
 - Texturas (procedurales).
 - El motor de render (Three.js) y la integración con el pipeline de datos.
