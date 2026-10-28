@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/oechenique/backrooms-streaming-redpanda/contracts/event.schema.json",
+  "title": "Evento del juego (contrato v1)",
+  "description": "Un evento emitido por el juego. Contrato estricto: campos de más o con otro tipo van a la DLQ. Tópico: backrooms.eventos (DLQ: backrooms.eventos.dlq).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "ts", "session", "seed", "world_v", "level", "type", "x", "y", "z", "client", "data"],
+  "properties": {
+    "event_id": { "$ref": "#/$defs/uuid", "description": "Único por evento: sirve para deduplicar (la entrega es at-least-once)." },
+    "ts": { "type": "string", "format": "date-time", "description": "Momento del evento en el cliente, ISO 8601 en UTC." },
+    "session": { "$ref": "#/$defs/uuid", "description": "UUID al azar por partida. Anónimo: no se guarda IP ni nada personal." },
+    "seed": { "$ref": "#/$defs/uint32", "description": "Seed del mundo." },
+    "world_v": { "type": "integer", "minimum": 1, "description": "Versión del generador (world/index.ts WORLD_V)." },
+    "level": { "type": "integer", "minimum": 0, "maximum": 1, "description": "Nivel de los Backrooms en el que estaba el jugador (0 o 1)." },
+    "type": {
+      "enum": [
+        "sesion_inicio",
+        "sesion_fin",
+        "posicion",
+        "zona_cambio",
+        "laberinto_cambio",
+        "aparicion",
+        "deteccion",
+        "persecucion_inicio",
+        "escape",
+        "captura",
+        "noclip"
+      ]
+    },
+    "x": { "$ref": "#/$defs/cell", "description": "Celda global del jugador en x, con decimales." },
+    "y": { "$ref": "#/$defs/cell", "description": "Celda global del jugador en y, con decimales." },
+    "z": { "$ref": "#/$defs/uint32", "description": "Capa del mundo." },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "version", "debug"],
+      "properties": {
+        "platform": { "enum": ["desktop", "touch"] },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "debug": { "type": "boolean", "description": "La partida corrió con ?debug=1 (puede tener nivel o caza forzados): filtrar en el análisis." }
+      }
+    },
+    "data": { "type": "object" }
+  },
+  "allOf": [
+    { "if": { "properties": { "type": { "const": "sesion_inicio" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_sesion_inicio" } } } },
+    { "if": { "properties": { "type": { "const": "sesion_fin" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_sesion_fin" } } } },
+    { "if": { "properties": { "type": { "const": "posicion" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_posicion" } } } },
+    { "if": { "properties": { "type": { "const": "zona_cambio" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_zona_cambio" } } } },
+    { "if": { "properties": { "type": { "const": "laberinto_cambio" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_laberinto_cambio" } } } },
+    { "if": { "properties": { "type": { "const": "aparicion" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_distancia" } } } },
+    { "if": { "properties": { "type": { "const": "deteccion" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_distancia" } } } },
+    { "if": { "properties": { "type": { "const": "persecucion_inicio" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_persecucion_inicio" } } } },
+    { "if": { "properties": { "type": { "const": "escape" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_escape" } } } },
+    { "if": { "properties": { "type": { "const": "captura" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_captura" } } } },
+    { "if": { "properties": { "type": { "const": "noclip" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/data_noclip" } } } }
+  ],
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "uint32": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "cell": { "type": "number", "minimum": 0, "exclusiveMaximum": 1099511627776, "description": "Coordenada global en celdas: 2^32 zonas × 256 celdas." },
+    "zona": { "type": "string", "pattern": "^[0-9]+,[0-9]+,[0-9]+$", "description": "Zona x,y,capa." },
+    "humor": { "enum": ["calm", "stalk", "hunt", "retreat"], "description": "Humor del director de La Interferencia." },
+    "seconds": { "type": "number", "minimum": 0 },
+    "distance": { "type": ["number", "null"], "minimum": 0, "description": "Metros; null si la entidad todavía no volvió después de una puerta." },
+    "data_sesion_inicio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zona"],
+      "properties": { "zona": { "$ref": "#/$defs/zona" } }
+    },
+    "data_sesion_fin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["motivo"],
+      "properties": { "motivo": { "enum": ["captura", "salida"] } }
+    },
+    "data_posicion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["velocidad", "humor"],
+      "properties": { "velocidad": { "type": "number", "minimum": 0 }, "humor": { "$ref": "#/$defs/humor" } }
+    },
+    "data_zona_cambio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zona", "via"],
+      "properties": { "zona": { "$ref": "#/$defs/zona" }, "via": { "enum": ["caminando", "puerta", "noclip"] } }
+    },
+    "data_laberinto_cambio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bloque_x", "bloque_y", "bloque_lado", "capa_antes", "capa_despues"],
+      "properties": {
+        "bloque_x": { "type": "integer", "minimum": 0, "maximum": 1099511627775 },
+        "bloque_y": { "type": "integer", "minimum": 0, "maximum": 1099511627775 },
+        "bloque_lado": { "type": "integer", "minimum": 1 },
+        "capa_antes": { "$ref": "#/$defs/uint32" },
+        "capa_despues": { "$ref": "#/$defs/uint32" }
+      }
+    },
+    "data_distancia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distancia_m"],
+      "properties": { "distancia_m": { "$ref": "#/$defs/distance" } }
+    },
+    "data_persecucion_inicio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persecucion_id", "distancia_m"],
+      "properties": { "persecucion_id": { "$ref": "#/$defs/uuid" }, "distancia_m": { "$ref": "#/$defs/distance" } }
+    },
+    "data_escape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persecucion_id", "duracion_s", "via"],
+      "properties": {
+        "persecucion_id": { "$ref": "#/$defs/uuid" },
+        "duracion_s": { "$ref": "#/$defs/seconds" },
+        "via": { "enum": ["retirada", "noclip"] }
+      }
+    },
+    "data_captura": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persecucion_id", "duracion_s", "humor"],
+      "properties": {
+        "persecucion_id": { "anyOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }], "description": "null si la atrapó sin persecución abierta (en acecho)." },
+        "duracion_s": { "$ref": "#/$defs/seconds" },
+        "humor": { "$ref": "#/$defs/humor" }
+      }
+    },
+    "data_noclip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nivel_origen", "nivel_destino"],
+      "properties": {
+        "nivel_origen": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "nivel_destino": { "type": "integer", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

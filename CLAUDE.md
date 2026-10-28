@@ -46,16 +46,21 @@ Entregable: `docs/RELEVAMIENTO.md` con una tabla por repo (autor, motor/lenguaje
 y cómo) y una propuesta de motor para el port (web y celu). **Frenar acá y esperar mi revisión.**
 
 **F1 — Juego jugable.** Port/integración según lo que decida en F0. Criterio: corre en desktop y celu, misma seed = mismo mundo.
-**F2 — Contrato + collector + Redpanda.** `contracts/event.schema.json`, collector, tópicos `nivel0.eventos` y `nivel0.eventos.dlq`, envío en batch desde el juego.
+**F2 — Contrato + collector + Redpanda.** `contracts/event.schema.json`, collector, tópicos `backrooms.eventos` y `backrooms.eventos.dlq` (el juego tiene más de un nivel), envío en batch desde el juego.
 Criterio: `docker compose up` + jugar = eventos en Redpanda Console.
 **F3 — Procesamiento.** Bronze (crudo) y Silver (sesiones, persecuciones con duración y resultado) en Parquet/DuckDB.
 **F4 — Gold con dbt.** Sesiones, supervivencia en persecuciones, zonas más letales, tests de contrato. Criterio: `dbt build` verde.
 **F5 — El mapa de los perdidos.** Reconstruye el mundo desde `seed` + versión del generador y pinta el heatmap.
 **F6 — Mobile y deploy.** PWA / app y hosting de la ingesta pública. Recién acá se habla de nube.
 
-## Contrato de eventos (borrador, se cierra en F2)
-Comunes: `event_id`, `ts` (UTC), `session` (anónimo), `seed`, `world_v` (versión del generador), `level`, `type`, `x`, `y`, `client`.
-Tipos esperados: inicio y fin de sesión, posición periódica, cambios de zona, cambios del laberinto, aparición/detección/persecución/escape/captura.
+## Contrato de eventos (v1, cerrado en F2)
+Fuente de verdad: `contracts/event.schema.json` (estricto: campos de más o con otro tipo van a la DLQ con el motivo).
+Comunes: `event_id`, `ts` (UTC), `session` (anónimo), `seed`, `world_v` (versión del generador), `level` (0 o 1), `type`,
+`x`, `y` (celda global), `z` (capa), `client` (`platform`, `version`, `debug`), `data` (según `type`).
+Tipos: `sesion_inicio`, `sesion_fin`, `posicion`, `zona_cambio`, `laberinto_cambio`, `aparicion`, `deteccion`,
+`persecucion_inicio`, `escape`, `captura`, `noclip`. Tópicos: `backrooms.eventos` (key = `session`) y
+`backrooms.eventos.dlq`. Entrega at-least-once: deduplicar por `event_id`. Cambiar el contrato = tocar el schema, los
+tipos de `game/events.ts` y `contracts/examples/` a la vez (los tests de los dos lados lo verifican).
 
 ## Convenciones
 - Commits en español, chicos, uno por cambio lógico.

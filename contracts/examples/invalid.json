@@ -1,0 +1,281 @@
+[
+  {
+    "caso": "falta session",
+    "motivo": "session",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002000",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "campo de más",
+    "motivo": "Additional properties",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002001",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      },
+      "ip": "203.0.113.7"
+    }
+  },
+  {
+    "caso": "tipo desconocido",
+    "motivo": "type",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002002",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "teletransporte",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "nivel que no existe",
+    "motivo": "level",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002003",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 7,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "ts no es fecha",
+    "motivo": "ts",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002004",
+      "ts": "ayer a la tarde",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "event_id no es uuid",
+    "motivo": "event_id",
+    "evento": {
+      "event_id": "abc",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "seed negativa",
+    "motivo": "seed",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002006",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": -1,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "x fuera del mundo",
+    "motivo": "x",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002007",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 2199023255552,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "client sin debug",
+    "motivo": "debug",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002008",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0"
+      },
+      "data": {
+        "velocidad": 1.7,
+        "humor": "calm"
+      }
+    }
+  },
+  {
+    "caso": "data de otro tipo",
+    "motivo": "humor",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-000000002009",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "posicion",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "velocidad": 1.0
+      }
+    }
+  },
+  {
+    "caso": "via de escape inválida",
+    "motivo": "via",
+    "evento": {
+      "event_id": "00000000-0000-4000-8000-00000000200a",
+      "ts": "2026-10-29T14:00:14.000Z",
+      "session": "8f14e45f-ceea-467a-9a3c-5e0a9d4b2c11",
+      "seed": 42,
+      "world_v": 3,
+      "level": 0,
+      "type": "escape",
+      "x": 429638660491.5,
+      "y": 282355261234.5,
+      "z": 1119679029,
+      "client": {
+        "platform": "desktop",
+        "version": "0.4.0",
+        "debug": false
+      },
+      "data": {
+        "persecucion_id": "3c59dc04-8f5e-4c3b-a1d2-77b5f0e3a9c4",
+        "duracion_s": 3,
+        "via": "volando"
+      }
+    }
+  },
+  {
+    "caso": "evento que no es objeto",
+    "motivo": "object",
+    "evento": "posicion"
+  }
+]
