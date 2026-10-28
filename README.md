@@ -51,6 +51,10 @@ npm run dev                    # juego en http://localhost:5173 (también en la 
 Jugá un rato y mirá los eventos en **Redpanda Console**: http://localhost:8080 → Topics → `backrooms.eventos`
 (los que no cumplen el contrato, con el motivo, en `backrooms.eventos.dlq`).
 
+> Si Redpanda Console queda en blanco, es por una extensión del navegador que bloquea el portapapeles (en la consola
+> del navegador aparece `Cannot assign to read only property 'writeText'`). Abrila en una ventana de incógnito, sin
+> extensiones.
+
 ```bash
 npm test           # tests TS: generador, oído, director, colisión, puertas, cola de envío y contrato
 npm run build      # typecheck + build estático en dist/
