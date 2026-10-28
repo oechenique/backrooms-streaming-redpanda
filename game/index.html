@@ -25,6 +25,7 @@
       #stick-base { width: 120px; height: 120px; border: 2px solid rgb(241 231 184 / 0.35); }
       #stick-knob { width: 52px; height: 52px; background: rgb(241 231 184 / 0.35); }
       .stick[hidden] { display: none; }
+      #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
     </style>
   </head>
   <body>
@@ -32,10 +33,15 @@
     <div id="hud"></div>
     <div id="stick-base" class="stick" hidden></div>
     <div id="stick-knob" class="stick" hidden></div>
+    <div id="fade"></div>
     <div id="overlay">
       <h1>NIVEL 0</h1>
-      <p class="desktop">Click para entrar. WASD o flechas para moverte, mouse para mirar, Shift para correr, Esc para salir.</p>
-      <p class="touch">Tocá para entrar. Mitad izquierda: caminar. Mitad derecha: mirar.</p>
+      <p class="desktop">Click para entrar. WASD o flechas para moverte, mouse para mirar, Shift para correr,
+        C para caminar en silencio, Esc para pausar.</p>
+      <p class="touch">Tocá para entrar. Mitad izquierda: caminar (poco recorrido = en silencio, a fondo = correr).
+        Mitad derecha: mirar.</p>
+      <p class="hint">Algo vive en la señal. No te ve: te oye.</p>
+      <p id="status"></p>
     </div>
     <script type="module" src="./main.ts"></script>
   </body>

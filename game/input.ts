@@ -6,15 +6,18 @@ const KEY_TURN = 2.2; // rad/s con las flechas
 const STICK_R = 60; // px de recorrido del joystick
 
 export class Input {
-  /** Avance (-1..1, + adelante) y desplazamiento lateral (-1..1, + derecha). */
+  /** Avance (-1..1, + adelante) y desplazamiento lateral (-1..1, + derecha). Largo ≤ 1: el joystick es analógico. */
   forward = 0;
   strafe = 0;
   running = false;
+  /** Caminar despacio: no hace ruido. */
+  sneaking = false;
   private keys = new Set<string>();
   private lookX = 0;
   private lookY = 0;
   private stick: { id: number; x0: number; y0: number; dx: number; dy: number } | null = null;
   private look: { id: number; x: number; y: number } | null = null;
+  private drag: { id: number; x: number; y: number } | null = null;
 
   constructor(
     el: HTMLElement,
@@ -46,17 +49,20 @@ export class Input {
     return out;
   }
 
-  /** Lee teclado y joystick y actualiza forward / strafe / running. */
+  /** Lee teclado y joystick y actualiza forward / strafe / running / sneaking. */
   poll(): void {
     const k = (code: string) => (this.keys.has(code) ? 1 : 0);
     let f = k('KeyW') + k('ArrowUp') - k('KeyS') - k('ArrowDown');
     let s = k('KeyD') - k('KeyA');
     let run = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+    this.sneaking = this.keys.has('KeyC') && !run;
     if (this.stick) {
+      // Analógico: poco recorrido = sigilo (la velocidad escala con el largo), a fondo = correr.
       const mag = Math.hypot(this.stick.dx, this.stick.dy) / STICK_R;
       f = -this.stick.dy / STICK_R;
       s = this.stick.dx / STICK_R;
-      run = mag > 0.9; // joystick a fondo = correr
+      run = mag > 0.9;
+      this.sneaking = false;
     }
     const len = Math.hypot(f, s);
     this.forward = len > 1 ? f / len : f;
@@ -65,7 +71,11 @@ export class Input {
   }
 
   private down(e: PointerEvent): void {
-    if (e.pointerType !== 'touch') return;
+    // Sin pointer lock (el navegador lo negó o se salió con Esc) se mira arrastrando con el mouse.
+    if (e.pointerType === 'mouse') {
+      if (!document.pointerLockElement) this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      return;
+    }
     if (e.clientX < innerWidth / 2 && !this.stick) {
       this.stick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
       this.place(this.base, e.clientX, e.clientY);
@@ -76,7 +86,12 @@ export class Input {
   }
 
   private move(e: PointerEvent): void {
-    if (this.stick?.id === e.pointerId) {
+    if (this.drag?.id === e.pointerId) {
+      this.lookX += (e.clientX - this.drag.x) * MOUSE_SENS * 1.5;
+      this.lookY += (e.clientY - this.drag.y) * MOUSE_SENS * 1.5;
+      this.drag.x = e.clientX;
+      this.drag.y = e.clientY;
+    } else if (this.stick?.id === e.pointerId) {
       let dx = e.clientX - this.stick.x0;
       let dy = e.clientY - this.stick.y0;
       const len = Math.hypot(dx, dy);
@@ -96,6 +111,7 @@ export class Input {
   }
 
   private up(e: PointerEvent): void {
+    if (this.drag?.id === e.pointerId) this.drag = null;
     if (this.stick?.id === e.pointerId) {
       this.stick = null;
       this.base.hidden = true;
