@@ -146,6 +146,39 @@ export class Sound {
     src.start(t, Math.random(), 2.4);
   }
 
+  /** Una gota lejana: un "plic" que cae de tono, con eco de lugar grande. */
+  drip(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    const f = 1300 + Math.random() * 900;
+    osc.frequency.setValueAtTime(f, t);
+    osc.frequency.exponentialRampToValueAtTime(f * 0.45, t + 0.05);
+    const g = ctx.createGain();
+    const level = 0.03 + Math.random() * 0.04; // lejos: bajito
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(level, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0005, t + 0.16);
+    // Eco: retardo con realimentación filtrada, como un estacionamiento vacío.
+    const echo = ctx.createDelay(1);
+    echo.delayTime.value = 0.18 + Math.random() * 0.12;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.38;
+    const damp = ctx.createBiquadFilter();
+    damp.type = 'lowpass';
+    damp.frequency.value = 1800;
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = Math.random() * 2 - 1;
+    osc.connect(g).connect(pan).connect(this.master);
+    g.connect(echo).connect(damp).connect(fb).connect(echo);
+    damp.connect(pan);
+    osc.start(t);
+    osc.stop(t + 0.2);
+    setTimeout(() => [osc, g, echo, fb, damp, pan].forEach((n) => n.disconnect()), 3000);
+  }
+
   /** Golpe de estática al ser atrapado. */
   /** Pausa: congela todo el audio (start() lo reanuda). */
   pause(): void {

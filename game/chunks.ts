@@ -3,47 +3,70 @@
 
 import * as THREE from 'three';
 import { Dir, Edge } from '../world';
-import { CELL, CHUNK, DOOR_W, isPortal, WALL_H, WALL_T, type Level } from './level';
+import { CELL, CHUNK, DOOR_W, isPortal, WALL_T, type Level } from './level';
 import { PILLAR_HALF } from './player';
 
 /** Bloques cargados a cada lado del que pisa el jugador. Con 1, lo no cargado queda a ≥ 35 m, detrás de la niebla. */
 const RADIUS = 1;
 /** Bloques nuevos por frame como máximo (el del jugador se arma siempre). */
 const BUILDS_PER_FRAME = 2;
-const WALLPAPER_W = 1.1; // metros que cubre la textura del empapelado a lo ancho
-const CARPET_M = 1.5;
-const TILE_M = 1.2; // dos placas de techo de 0,6 m
 export const DOOR_H = 2.05;
 const LINTEL_Y = 2.15;
-const FRAME = 0.07;
+const FRAME = 0.1;
+/** Cantidad de códigos en el atlas de los pilares (8 × 8). */
+export const CODE_COUNT = 64;
 
 export interface Materials {
   wall: THREE.Material;
   floor: THREE.Material;
   ceiling: THREE.Material;
   light: THREE.Material;
+  /** Tubos apagados y tubos que titilan (el que llama anima este último). */
+  deadLight: THREE.Material;
+  flickerLight: THREE.Material;
   door: THREE.Material;
   void: THREE.Material;
   /** Paredes por las que se hace noclip (titilan). */
   noclip: THREE.Material;
   puddle: THREE.Material;
+  /** Reflejo falso de los tubos en los charcos (aditivo, sin reflejos en tiempo real). */
+  reflection: THREE.Material;
   pipe: THREE.Material;
+  tray: THREE.Material;
+  pillar: THREE.Material;
+  /** Atlas de códigos pintados en los pilares (CODE_COUNT celdas en una grilla de 8 × 8). */
+  code: THREE.Material;
+  paint: THREE.Material;
+  paintYellow: THREE.Material;
 }
 
 /** Lo que cambia entre niveles al armar los bloques. */
 export interface Style {
   mats: Materials;
-  /** Un tubo de luz cada tantas celdas, y su tamaño (ancho, largo) en metros. */
-  lightEvery: number;
-  lightSize: [number, number];
-  puddles: boolean;
+  /** Alto del techo en metros. */
+  height: number;
+  /** Metros que cubre a lo ancho la textura de pared, la del piso y la del techo. */
+  tex: { wall: number; floor: number; ceiling: number };
+  /**
+   * Tubos: uno en cada celda con rx múltiplo de `everyX` y ry ≡ `rowY` (mód. `everyY`), centrado en x y a `zAt` del
+   * alto de la celda en z (0,5 = centro, 1 = borde S). `size` = [largo en x, largo en z]. Una fracción `dead` está
+   * apagada y otra `flicker` titila.
+   */
+  lights: { everyX: number; everyY: number; rowY: number; zAt: number; size: [number, number]; dead: number; flicker: number };
+  /** Fracción de celdas de las filas de tubos con charco (0 = sin charcos): quedan debajo de la luz y la reflejan. */
+  puddles: number;
   pipes: boolean;
+  /** Bandejas de cables a lo largo de z. */
+  trays: boolean;
+  /** Estacionamiento: líneas pintadas en el piso y códigos en los pilares (filas de pilares cada 4 celdas). */
+  parking: boolean;
 }
 
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 
-// Hash entero chico para detalles que son solo decorado (charcos): estable por celda, no es parte del mundo.
-function decor(gx: number, gy: number): number {
+// Hash entero chico para detalles que son solo decorado (charcos, tubos muertos, códigos): estable por celda, no es
+// parte del mundo.
+export function decor(gx: number, gy: number): number {
   let h = Math.imul((gx % 0x100000) ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(gy % 0x100000, 0xc2b2ae35);
   h ^= h >>> 15;
   h = Math.imul(h, 0x2c1b3c6d);
@@ -78,6 +101,16 @@ class Builder {
     this.quad([x1, y0, z0, x0, y0, z0, x0, y1, z0, x1, y1, z0], [0, 0, -1], [x1 / uw, v0, x0 / uw, v0, x0 / uw, v1, x1 / uw, v1]);
     // cara de abajo (solo se ve en los dinteles)
     if (y0 > 0) this.quad([x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1], [0, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0]);
+  }
+
+  /** Quad vertical sobre la cara de un pilar (dir: +x, -x, +z, -z), centrado en (x, z), con UV del atlas. */
+  decal(face: '+x' | '-x' | '+z' | '-z', x: number, z: number, w: number, y0: number, y1: number, uv: [number, number, number, number]): void {
+    const [u0, v0, u1, v1] = uv;
+    const uvs = [u0, v0, u1, v0, u1, v1, u0, v1];
+    if (face === '+x') this.quad([x, y0, z + w, x, y0, z - w, x, y1, z - w, x, y1, z + w], [1, 0, 0], uvs);
+    else if (face === '-x') this.quad([x, y0, z - w, x, y0, z + w, x, y1, z + w, x, y1, z - w], [-1, 0, 0], uvs);
+    else if (face === '+z') this.quad([x - w, y0, z, x + w, y0, z, x + w, y1, z, x - w, y1, z], [0, 0, 1], uvs);
+    else this.quad([x + w, y0, z, x - w, y0, z, x - w, y1, z, x + w, y1, z], [0, 0, -1], uvs);
   }
 
   /** Plano horizontal a altura y, mirando hacia arriba (`up`) o hacia abajo. UV = metros / `m`. */
@@ -123,49 +156,71 @@ interface Builders {
 
 /**
  * Pared sobre un borde. `alongX`: el borde corre en x (lado S de una celda); si no, corre en z (lado E).
- * (ex, ez) es el punto medio del borde.
+ * (ex, ez) es el punto medio del borde; `H` el alto del techo y `uw` el ancho de la textura de pared.
  */
-function edgeMesh(b: Builders, edge: Edge, ex: number, ez: number, alongX: boolean, noclip: boolean): void {
+function edgeMesh(b: Builders, edge: Edge, ex: number, ez: number, alongX: boolean, noclip: boolean, H: number, uw: number): void {
   if (edge === Edge.OPEN) return;
   const h = CELL / 2 + WALL_T / 2; // medio largo, con un poco de solape para tapar las esquinas
   const t = WALL_T / 2;
-  // Tramo del borde entre a y b (metros desde el punto medio, a lo largo) y entre y0 e y1 de alto.
-  const seg = (out: Builder, a: number, c: number, y0: number, y1: number, thick: number, uw: number, vh: number) =>
+  // Tramo del borde entre a y c (metros desde el punto medio, a lo largo) y entre y0 e y1 de alto.
+  const seg = (out: Builder, a: number, c: number, y0: number, y1: number, thick: number, tw: number, vh: number) =>
     alongX
-      ? out.box(ex + a, ex + c, y0, y1, ez - thick, ez + thick, uw, vh)
-      : out.box(ex - thick, ex + thick, y0, y1, ez + a, ez + c, uw, vh);
+      ? out.box(ex + a, ex + c, y0, y1, ez - thick, ez + thick, tw, vh)
+      : out.box(ex - thick, ex + thick, y0, y1, ez + a, ez + c, tw, vh);
 
   if (edge === Edge.DOOR) {
-    seg(b.walls, -h, h, LINTEL_Y, WALL_H, t, WALLPAPER_W, WALL_H); // hueco a lo ancho de la celda con dintel
+    seg(b.walls, -h, h, LINTEL_Y, H, t, uw, H); // hueco a lo ancho de la celda con dintel
     return;
   }
   if (!isPortal(edge)) {
-    seg(noclip ? b.noclip : b.walls, -h, h, 0, WALL_H, t, WALLPAPER_W, WALL_H);
+    // Una pared de noclip es el paño entero, con otra textura: no se confunde con una puerta.
+    seg(noclip ? b.noclip : b.walls, -h, h, 0, H, t, uw, H);
     return;
   }
-  // Puerta de capa: pared a los costados, dintel, marco y un hueco oscuro que se atraviesa.
+  // Puerta de capa: hueco angosto y oscuro con marco de madera y dintel; el resto del borde es pared común.
   const d = DOOR_W / 2;
-  seg(b.walls, -h, -d, 0, WALL_H, t, WALLPAPER_W, WALL_H);
-  seg(b.walls, d, h, 0, WALL_H, t, WALLPAPER_W, WALL_H);
-  seg(b.walls, -d, d, DOOR_H, WALL_H, t, WALLPAPER_W, WALL_H);
-  const k = t + 0.02;
+  seg(b.walls, -h, -d, 0, H, t, uw, H);
+  seg(b.walls, d, h, 0, H, t, uw, H);
+  seg(b.walls, -d, d, DOOR_H, H, t, uw, H);
+  const k = t + 0.03;
   seg(b.doors, -d - FRAME, -d, 0, DOOR_H + FRAME, k, 1, 1);
   seg(b.doors, d, d + FRAME, 0, DOOR_H + FRAME, k, 1, 1);
-  seg(b.doors, -d, d, DOOR_H, DOOR_H + FRAME, k, 1, 1);
+  seg(b.doors, -d - FRAME, d + FRAME, DOOR_H, DOOR_H + FRAME, k, 1, 1);
   seg(b.voids, -d, d, 0, DOOR_H, 0.01, 1, 1);
 }
 
 function buildChunk(level: Level, style: Style, cx: number, cy: number): THREE.Group {
   const b: Builders = { walls: new Builder(), noclip: new Builder(), doors: new Builder(), voids: new Builder() };
-  const floor = new Builder();
-  const ceil = new Builder();
-  const lights = new Builder();
-  const puddles = new Builder();
-  const pipes = new Builder();
+  const out = {
+    floor: new Builder(),
+    ceiling: new Builder(),
+    light: new Builder(),
+    deadLight: new Builder(),
+    flickerLight: new Builder(),
+    puddle: new Builder(),
+    reflection: new Builder(),
+    pipe: new Builder(),
+    tray: new Builder(),
+    pillar: new Builder(),
+    code: new Builder(),
+    paint: new Builder(),
+    paintYellow: new Builder(),
+  };
+  const H = style.height;
+  const L = style.lights;
   const rx0 = cx * CHUNK;
   const ry0 = cy * CHUNK;
-  const [lw, ll] = style.lightSize;
   const p = PILLAR_HALF;
+  const PAINT_Y = 0.003;
+  const LINE = 0.05; // medio ancho de una línea pintada
+
+  // ¿Hay un tubo encendido en la celda? (para los reflejos)
+  const lightAt = (rx: number, ry: number): 'none' | 'on' | 'dead' | 'flicker' => {
+    if (mod(rx, L.everyX) !== 0 || mod(ry, L.everyY) !== L.rowY) return 'none';
+    const { gx, gy } = level.global(rx, ry);
+    const h = decor(gx + 7, gy + 3);
+    return h < L.dead ? 'dead' : h < L.dead + L.flicker ? 'flicker' : 'on';
+  };
 
   for (let ry = ry0; ry < ry0 + CHUNK; ry++)
     for (let rx = rx0; rx < rx0 + CHUNK; rx++) {
@@ -174,23 +229,64 @@ function buildChunk(level: Level, style: Style, cx: number, cy: number): THREE.G
       const s = level.edge(rx, ry, Dir.S);
       const ne = e === Edge.WALL && level.noclip(rx, ry, Dir.E);
       const ns = s === Edge.WALL && level.noclip(rx, ry, Dir.S);
-      edgeMesh(b, e, (rx + 1) * CELL, (ry + 0.5) * CELL, false, ne);
-      edgeMesh(b, s, (rx + 0.5) * CELL, (ry + 1) * CELL, true, ns);
-      // Pilar en la esquina superior izquierda de la celda.
-      if (level.pillar(rx, ry)) b.walls.box(rx * CELL - p, rx * CELL + p, 0, WALL_H, ry * CELL - p, ry * CELL + p, WALLPAPER_W, WALL_H);
-      // Tubos de luz fijos en la grilla global (rx y gx difieren en un múltiplo de 256).
-      if (mod(rx, style.lightEvery) === 0 && mod(ry, style.lightEvery) === 0) {
-        const mx = (rx + 0.5) * CELL;
-        const mz = (ry + 0.5) * CELL;
-        lights.flat(mx - lw / 2, mx + lw / 2, mz - ll / 2, mz + ll / 2, WALL_H - 0.01, false, 1);
-      }
-      if (style.puddles) {
-        const { gx, gy } = level.global(rx, ry);
-        const h = decor(gx, gy);
-        if (h < 0.07) {
-          const r = 0.35 + (h / 0.07) * 0.6;
-          puddles.disc((rx + 0.5) * CELL, 0.004, (ry + 0.5) * CELL, r, r * (0.55 + decor(gy, gx) * 0.4), 18);
+      edgeMesh(b, e, (rx + 1) * CELL, (ry + 0.5) * CELL, false, ne, H, style.tex.wall);
+      edgeMesh(b, s, (rx + 0.5) * CELL, (ry + 1) * CELL, true, ns, H, style.tex.wall);
+      const { gx, gy } = level.global(rx, ry);
+
+      // Pilar en la esquina superior izquierda de la celda, con su código pintado en las cuatro caras.
+      if (level.pillar(rx, ry)) {
+        const px = rx * CELL;
+        const pz = ry * CELL;
+        out.pillar.box(px - p, px + p, 0, H, pz - p, pz + p, 2 * p, H);
+        if (style.parking) {
+          const i = Math.floor(decor(gx * 3 + 1, gy * 5 + 2) * CODE_COUNT);
+          const uv: [number, number, number, number] = [(i % 8) / 8, 1 - (Math.floor(i / 8) + 1) / 8, (i % 8 + 1) / 8, 1 - Math.floor(i / 8) / 8];
+          const o = p + 0.004;
+          for (const [face, x, z] of [
+            ['+x', px + o, pz],
+            ['-x', px - o, pz],
+            ['+z', px, pz + o],
+            ['-z', px, pz - o],
+          ] as const)
+            out.code.decal(face, x, z, 0.24, 1.25, 1.49, uv);
         }
+      }
+
+      // Tubos de luz fijos en la grilla global (rx y gx difieren en un múltiplo de 256).
+      const light = lightAt(rx, ry);
+      if (light !== 'none') {
+        const [lx, lz] = L.size;
+        const mx = (rx + 0.5) * CELL;
+        const mz = (ry + L.zAt) * CELL;
+        const target = light === 'on' ? out.light : light === 'dead' ? out.deadLight : out.flickerLight;
+        target.flat(mx - lx / 2, mx + lx / 2, mz - lz / 2, mz + lz / 2, H - 0.02, false, 1);
+      }
+
+      // Charcos en las filas de tubos; si el tubo de arriba está encendido, con su reflejo (una franja clara, no un
+      // reflejo en tiempo real: no cuesta nada en el celu).
+      if (style.puddles && mod(ry, L.everyY) === L.rowY && decor(gx, gy) < style.puddles) {
+        const r = 0.45 + decor(gy, gx) * 0.6;
+        const mx = (rx + 0.5) * CELL;
+        const mz = (ry + L.zAt) * CELL;
+        out.puddle.disc(mx, 0.004, mz, r * 1.3, r, 18);
+        if (lightAt(rx, ry) === 'on') {
+          const half = Math.min(L.size[0] / 2, r * 1.1);
+          out.reflection.flat(mx - half, mx + half, mz - 0.05, mz + 0.05, 0.006, true, 1);
+        }
+      }
+
+      // Estacionamiento: filas de pilares cada 4 celdas (borde N de las celdas con ry ≡ 0). A cada lado de la fila,
+      // cajones de una celda de ancho; en el medio del pasillo, una línea amarilla punteada.
+      if (style.parking) {
+        const band = mod(ry, 4);
+        const z0 = ry * CELL;
+        const z1 = (ry + 1) * CELL;
+        if (band === 0 || band === 3) {
+          out.paint.flat(rx * CELL - LINE, rx * CELL + LINE, z0, z1, PAINT_Y, true, 1);
+          const zEnd = band === 0 ? z1 : z0; // fondo del cajón, del lado del pasillo
+          out.paint.flat(rx * CELL, (rx + 1) * CELL, zEnd - LINE, zEnd + LINE, PAINT_Y, true, 1);
+        }
+        if (band === 1) out.paintYellow.flat(rx * CELL + 0.6, rx * CELL + 1.6, z1 - LINE, z1 + LINE, PAINT_Y, true, 1);
       }
     }
 
@@ -198,30 +294,36 @@ function buildChunk(level: Level, style: Style, cx: number, cy: number): THREE.G
   const z0 = ry0 * CELL;
   const x1 = (rx0 + CHUNK) * CELL;
   const z1 = (ry0 + CHUNK) * CELL;
-  floor.flat(x0, x1, z0, z1, 0, true, CARPET_M);
-  ceil.flat(x0, x1, z0, z1, WALL_H, false, TILE_M);
+  out.floor.flat(x0, x1, z0, z1, 0, true, style.tex.floor);
+  out.ceiling.flat(x0, x1, z0, z1, H, false, style.tex.ceiling);
   // Caños a lo largo de x, uno cada cuatro filas, colgados del techo; atraviesan las paredes.
   if (style.pipes)
     for (let ry = ry0; ry < ry0 + CHUNK; ry++)
-      if (mod(ry, 4) === 1) {
-        const z = (ry + 0.25) * CELL;
-        pipes.box(x0, x1, WALL_H - 0.24, WALL_H - 0.1, z - 0.07, z + 0.07, 1, 1);
-        pipes.box(x0, x1, WALL_H - 0.16, WALL_H - 0.08, z + 0.18, z + 0.26, 1, 1);
+      if (mod(ry, 4) === 2) {
+        const z = (ry + 0.3) * CELL;
+        out.pipe.box(x0, x1, H - 0.2, H - 0.08, z - 0.06, z + 0.06, 1, 1);
+        out.pipe.box(x0, x1, H - 0.14, H - 0.07, z + 0.16, z + 0.23, 1, 1);
+      }
+  // Bandejas de cables a lo largo de z, una cada ocho columnas.
+  if (style.trays)
+    for (let rx = rx0; rx < rx0 + CHUNK; rx++)
+      if (mod(rx, 8) === 5) {
+        const x = (rx + 0.5) * CELL;
+        out.tray.box(x - 0.22, x + 0.22, H - 0.3, H - 0.26, z0, z1, 1, 1);
+        out.tray.box(x - 0.22, x - 0.2, H - 0.3, H - 0.22, z0, z1, 1, 1);
+        out.tray.box(x + 0.2, x + 0.22, H - 0.3, H - 0.22, z0, z1, 1, 1);
       }
 
   const m = style.mats;
   const group = new THREE.Group();
-  for (const [builder, mat] of [
+  const parts: Array<[Builder, THREE.Material]> = [
     [b.walls, m.wall],
     [b.noclip, m.noclip],
     [b.doors, m.door],
     [b.voids, m.void],
-    [floor, m.floor],
-    [ceil, m.ceiling],
-    [lights, m.light],
-    [puddles, m.puddle],
-    [pipes, m.pipe],
-  ] as const) {
+  ];
+  for (const k of Object.keys(out) as Array<keyof typeof out>) parts.push([out[k], m[k]]);
+  for (const [builder, mat] of parts) {
     const g = builder.build();
     if (g) group.add(new THREE.Mesh(g, mat));
   }

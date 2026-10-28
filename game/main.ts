@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { getStart, levelParams, World, WORLD_V, ZONE_SIZE } from '../world';
 import { Sound } from './audio';
 import { Chunks } from './chunks';
-import { Interferencia } from './entity/interferencia';
+import { Interferencia, type Tick } from './entity/interferencia';
 import { Signal, threatOf } from './entity/signal';
 import { safeLanding } from './landing';
 import { Events, uuid } from './events';
@@ -10,7 +10,7 @@ import { Input } from './input';
 import { CELL, CHUNK, Level } from './level';
 import { Player, type Crossing } from './player';
 import { SHIFT_LAYERS, Shifter } from './shifter';
-import { noclipMaterial, themeFor, type Theme } from './themes';
+import { flickerLightMaterial, noclipMaterial, themeFor, type Theme } from './themes';
 import { ZoneLoader } from './zones';
 
 // Seed por URL (?seed=123): misma seed, mismo mundo. Sin seed se sortea una y se escribe en la URL.
@@ -134,6 +134,7 @@ let exertion = 0;
 let blackoutIn = 40;
 let blackoutLeft = 0;
 let clankIn = 8;
+let dripIn = 2;
 
 function zoneOfPlayer(): string {
   const { gx, gy } = level.global(player.cell.rx, player.cell.ry);
@@ -203,6 +204,11 @@ function noclip(): void {
   const to = levelParams(from).noclipTo;
   if (to === null) return;
   events.emit('noclip', where(), { nivel_origen: from, nivel_destino: to });
+  // Si te venía cazando y el nivel nuevo es zona segura, el noclip es un escape.
+  if (chase && !themeFor(to).entity) {
+    events.emit('escape', where(), { persecucion_id: chase.id, duracion_s: round1((performance.now() - chase.t0) / 1000), via: 'noclip' });
+    chase = null;
+  }
   level.enterLevel(to);
   events.level = to;
   applyTheme();
@@ -246,7 +252,11 @@ function capture(): void {
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
 function updateEntity(dt: number): void {
-  const t = entity.update(dt, player);
+  // Zona segura: La Interferencia no existe en este nivel (no oye, no se mueve, no se ve, no suena).
+  if (!theme.entity) entity.mesh.visible = false;
+  const t: Tick = theme.entity
+    ? entity.update(dt, player)
+    : { from: entity.mood, mood: entity.mood, detected: false, captured: false, present: false, distM: Infinity, walls: 2 };
   const pos = where();
   // null mientras la entidad vuelve después de una puerta: todavía no está en el mundo.
   const dist = t.present ? round1(t.distM) : null;
@@ -258,7 +268,7 @@ function updateEntity(dt: number): void {
       events.emit('persecucion_inicio', pos, { persecucion_id: chase.id, distancia_m: dist });
     }
     if (t.from === 'hunt' && chase) {
-      events.emit('escape', pos, { persecucion_id: chase.id, duracion_s: round1((performance.now() - chase.t0) / 1000) });
+      events.emit('escape', pos, { persecucion_id: chase.id, duracion_s: round1((performance.now() - chase.t0) / 1000), via: 'retirada' });
       chase = null;
     }
   }
@@ -283,7 +293,7 @@ function updateEntity(dt: number): void {
     t.mood === 'calm' || t.mood === 'retreat' ? 0 : near(15) * (t.mood === 'hunt' ? 1 : 0.6),
     signal.burst * signal.threat,
   );
-  const blackout = updateBlackout(dt);
+  const blackout = updateAmbience(dt);
   const dim = blackout ? 0.03 : flicker && Math.random() < flicker * 0.25 ? 0.25 + Math.random() * 0.4 : 1;
   (theme.style.mats.light as THREE.MeshBasicMaterial).color.setScalar(dim);
   sky.intensity = theme.sky.intensity * (blackout ? 0.12 : 0.75 + 0.25 * dim);
@@ -299,12 +309,20 @@ function updateEntity(dt: number): void {
   });
 }
 
-// Cortes de luz de 2–5 s cada 40–90 s y golpes en las cañerías cada 6–18 s, si el nivel los tiene.
-function updateBlackout(dt: number): boolean {
+// Ambiente del nivel: golpes en las cañerías cada 6–18 s, goteo lejano cada 1,5–6,5 s, tubos que titilan y cortes
+// de luz de 2–5 s cada 40–90 s, según lo que tenga el nivel. Devuelve si hay un corte de luz en curso.
+function updateAmbience(dt: number): boolean {
   if (theme.clanks && (clankIn -= dt) <= 0) {
     clankIn = 6 + Math.random() * 12;
     sound.clank();
   }
+  if (theme.drips && (dripIn -= dt) <= 0) {
+    dripIn = 1.5 + Math.random() * 5;
+    sound.drip();
+  }
+  // Tubos que titilan: casi siempre prendidos, a ratos se apagan un instante o quedan a media luz.
+  const r = Math.random();
+  flickerLightMaterial.color.setScalar(r < 0.08 ? 0.05 : r < 0.14 ? 0.4 : 1);
   if (!theme.blackouts) return false;
   if (blackoutLeft > 0) return (blackoutLeft -= dt) > 0;
   if ((blackoutIn -= dt) <= 0) {
@@ -322,6 +340,8 @@ function flickerNoclip(dt: number): void {
   const glitch = noclipBurst > 0 ? Math.random() < 0.6 : Math.random() < 0.04;
   noclipMaterial.opacity = glitch ? 0.25 + Math.random() * 0.45 : 1;
   noclipMaterial.emissiveIntensity = glitch ? 0.5 + Math.random() * 0.6 : 0.08;
+  // La textura rota se corre en cada falla: las bandas de estática "corren" por la pared.
+  if (glitch) noclipMaterial.map!.offset.set(Math.random(), Math.random() * 0.2);
 }
 
 let hudText = '';
@@ -337,8 +357,10 @@ function updateHud(): void {
     const d = entity.director;
     text +=
       `\n${frameMs.toFixed(1)} ms/frame · ${renderer.info.render.calls} draws` +
-      `\n${d.mood} · amenaza ${d.menace.toFixed(0)} · sospecha ${d.suspicion.toFixed(1)}` +
-      `\nentidad a ${Math.hypot(entity.x - player.x, entity.z - player.z).toFixed(1)} m`;
+      (theme.entity
+        ? `\n${d.mood} · amenaza ${d.menace.toFixed(0)} · sospecha ${d.suspicion.toFixed(1)}` +
+          `\nentidad a ${Math.hypot(entity.x - player.x, entity.z - player.z).toFixed(1)} m`
+        : '\nzona segura: sin La Interferencia');
   }
   if (text !== hudText) hud.textContent = hudText = text;
 }

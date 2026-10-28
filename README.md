@@ -89,14 +89,20 @@ game/    render Three.js por bloques de 16×16 celdas, input, colisión, textura
   atraviesan la niebla. Si te metés en una, caés al **Nivel 1**, en la misma posición y capa; si ahí hay una pared, un
   pilar o una celda encerrada, aparecés en la celda caminable más cercana. Las puertas siguen siendo el cambio de capa
   dentro de un nivel.
-- **Nivel 1 — Habitable Zone** ([wiki](https://backrooms-wiki.wikidot.com/level-1), CC BY-SA 3.0): salones de
-  concreto con pilares unidos por pasillos, charcos, caños en el techo, luz fría escasa, cortes de luz de unos segundos
-  y golpes en las cañerías. No tiene puertas de capa ni noclip (por ahora es el último nivel).
+- **Nivel 1 — Habitable Zone** ([wiki](https://backrooms-wiki.wikidot.com/level-1), CC BY-SA 3.0): un
+  estacionamiento subterráneo infinito. Techo bajo, grilla regular de pilares cuadrados con códigos pintados, muy
+  pocas paredes, cemento liso con líneas de cajones, filas de tubos fluorescentes (algunos muertos, otros titilando),
+  caños y bandejas de cables, y charcos que reflejan los tubos (un reflejo falso, sin costo en el celu). Es **zona
+  segura**: La Interferencia no aparece, y si te venía cazando, el noclip cuenta como escape. Se oye goteo lejano,
+  el zumbido de los tubos y algún golpe en las cañerías. No tiene puertas de capa ni noclip (por ahora es el último
+  nivel).
+- **Puerta de capa o noclip**: la puerta es un hueco angosto y negro con marco de madera clara; la pared de noclip es
+  el paño entero, con bandas de estática y color que se corren, destellos y transparencias.
 
 ### Eventos (contrato borrador)
 Comunes: `event_id`, `ts` (UTC), `session` (UUID por partida), `seed`, `world_v`, `level`, `type`, `x`, `y`
 (celda global con decimales), **`z`** (capa; propuesta nueva para el contrato), `client` (`platform`, `version`,
-`debug`), `data`. `world_v` es 2 desde que cambió la frecuencia de noclip.
+`debug`), `data`. `world_v` es 3 desde que el Nivel 1 pasó a ser un estacionamiento.
 
 | `type` | `data` |
 |---|---|
@@ -106,7 +112,7 @@ Comunes: `event_id`, `ts` (UTC), `session` (UUID por partida), `seed`, `world_v`
 | `laberinto_cambio` | `bloque_x`, `bloque_y`, `bloque_lado`, `capa_antes`, `capa_despues` |
 | `aparicion` / `deteccion` | `distancia_m` (`null` si la entidad todavía no volvió después de una puerta) |
 | `persecucion_inicio` | `persecucion_id`, `distancia_m` |
-| `escape` / `captura` | `persecucion_id`, `duracion_s` (`captura` suma `humor`) |
+| `escape` / `captura` | `persecucion_id`, `duracion_s`; `escape` suma `via` (`retirada` o `noclip`), `captura` suma `humor` |
 | `noclip` | `nivel_origen`, `nivel_destino` (el campo común `level` es el de origen; los eventos siguientes ya llevan el de destino) |
 
 `zona_cambio.via` también puede ser `noclip`.

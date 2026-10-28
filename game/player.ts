@@ -20,7 +20,7 @@ const NEIGHBOR: ReadonlyArray<[number, number, Dir]> = [
 ];
 
 /** Medio lado de un pilar, en metros. */
-export const PILLAR_HALF = 0.24;
+export const PILLAR_HALF = 0.3;
 
 /** Puerta de capa (+1 sube, -1 baja) o noclip a otro nivel. */
 export type Crossing = { kind: 'door'; dz: 1 | -1 } | { kind: 'noclip' };
