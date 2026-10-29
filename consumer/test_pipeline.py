@@ -59,7 +59,7 @@ def partidas():
     hunt2 = str(uuid.uuid4())
     a.ev(14, "persecucion_inicio", {"persecucion_id": hunt2, "distancia_m": 8}, x=500, y=503, z=1)
     a.ev(16, "noclip", {"nivel_origen": 0, "nivel_destino": 1}, x=500, y=503, z=1)
-    a.ev(16, "escape", {"persecucion_id": hunt2, "duracion_s": 2.0, "via": "noclip"}, level=1, x=500, y=503, z=1)
+    a.ev(16, "escape", {"persecucion_id": hunt2, "duracion_s": 2.0, "via": "noclip"}, x=500, y=503, z=1)  # nivel de origen, como el juego
     a.ev(20, "sesion_fin", {"motivo": "salida"}, level=1, x=500, y=503, z=1)
 
     b = Partida()
@@ -94,8 +94,8 @@ def test_bronze_particiona_por_fecha_y_nivel_y_separa_la_dlq(tmp_path, partidas)
     assert rel == [
         "dlq/fecha=2026-10-30/p0-000007-000007.parquet",
         "eventos/fecha=2026-10-29/nivel=0/p0-000000-000003.parquet",  # la partida cruza la medianoche UTC
-        "eventos/fecha=2026-10-30/nivel=0/p0-000004-000007.parquet",
-        "eventos/fecha=2026-10-30/nivel=1/p0-000008-000009.parquet",
+        "eventos/fecha=2026-10-30/nivel=0/p0-000004-000008.parquet",
+        "eventos/fecha=2026-10-30/nivel=1/p0-000009-000009.parquet",
     ]
     filas = duckdb.sql(f"SELECT valor FROM read_parquet('{tmp_path.as_posix()}/eventos/**/*.parquet') ORDER BY \"offset\"").fetchall()
     assert [json.loads(v) for (v,) in filas] == events  # crudo: el JSON tal cual
@@ -113,8 +113,8 @@ def db(tmp_path, partidas):
     todos = [e for k in "abcde" for e in partidas[k].events]
     bronze.write(msgs(todos), tmp_path / "bronze", DLQ)
     bronze.write(msgs(partidas["b"].events, start=100), tmp_path / "bronze", DLQ)  # reentrega: duplicados
-    filas = silver.build(tmp_path / "bronze", tmp_path / "silver.duckdb")
-    assert filas is not None
+    filas = silver.build(tmp_path / "bronze", tmp_path / "silver.duckdb", tmp_path / "gold")
+    assert filas is not None and filas["gold_mundos"] == 1
     con = duckdb.connect(str(tmp_path / "silver.duckdb"), read_only=True)
     yield con
     con.close()
@@ -152,6 +152,24 @@ def test_silver_persecuciones(db, partidas):
 def test_silver_noclips(db, partidas):
     h2 = partidas["hunts"][1]
     assert db.sql("SELECT nivel_origen, nivel_destino, persecucion_id_escapada FROM noclips").fetchall() == [(0, 1, h2)]
+
+
+def test_gold_mapa_y_resumen(db, tmp_path, partidas):
+    index = json.loads((tmp_path / "gold" / "index.json").read_text(encoding="utf-8"))
+    [m] = index["mundos"]
+    # Sin la partida debug: 4 sesiones; terminadas 2 escapes + 1 captura + 1 pérdida (la en curso no cuenta).
+    assert (m["seed"], m["world_v"], m["sesiones"], m["persecuciones"], m["capturas"], m["en_curso"], m["pct_captura"]) == (42, 3, 4, 5, 1, 1, 25.0)
+    mapa = json.loads((tmp_path / "gold" / "mapa" / "42-v3.json").read_text(encoding="utf-8"))
+    capas = {(c["level"], c["z"]): c for c in mapa["capas"]}
+    assert set(capas) == {(0, 0), (0, 1), (1, 1)}
+    # El tramo de (100, 100) a (103, 104) se rellena: pasa por celdas intermedias.
+    celdas = {(cx, cy) for cx, cy, _ in capas[(0, 0)]["rastros"]}
+    assert {(100, 100), (101, 101), (102, 102), (103, 104)} <= celdas
+    tipos = sorted((mk["tipo"], mk["detalle"]) for mk in capas[(0, 1)]["marcas"])
+    assert tipos == [("escape", "noclip"), ("noclip", "al nivel 1")]
+    assert {(mk["tipo"], mk["detalle"]) for mk in capas[(0, 0)]["marcas"]} == {("escape", "retirada"), ("captura", "hunt")}
+    assert all((tmp_path / "gold" / f"{t}.parquet").exists() for t in ("rastros", "marcas", "resumen"))
+    assert not list((tmp_path / "gold").glob("**/*.tmp"))
 
 
 def test_silver_sin_bronze_no_construye(tmp_path):

@@ -1,8 +1,8 @@
-"""Consumer de F3: Redpanda → Bronze (Parquet) → Silver (DuckDB).
+"""Consumer: Redpanda → Bronze (Parquet) → Silver (DuckDB) → Gold liviano (JSON/Parquet para el mapa).
 
 Lee `backrooms.eventos` y `backrooms.eventos.dlq` en lotes (hasta BATCH_MAX mensajes o BATCH_S segundos), escribe el
 lote en Bronze y recién después hace commit de los offsets: si se cae en el medio, al volver relee y reescribe el
-mismo lote (Silver deduplica por event_id). Con datos nuevos reconstruye Silver, como mucho cada SILVER_EVERY_S.
+mismo lote (Silver deduplica por event_id). Con datos nuevos reconstruye Silver y Gold, como mucho cada SILVER_EVERY_S.
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ def main() -> None:
     dlq_topic = os.environ.get("DLQ_TOPIC", "backrooms.eventos.dlq")
     bronze_dir = Path(os.environ.get("BRONZE_DIR", "/data/bronze"))
     silver_db = Path(os.environ.get("SILVER_DB", "/data/silver/backrooms.duckdb"))
+    gold_dir = Path(os.environ.get("GOLD_DIR", "/data/gold"))
     batch_max = int(os.environ.get("BATCH_MAX", "1000"))
     batch_s = float(os.environ.get("BATCH_S", "5"))
     silver_every_s = float(os.environ.get("SILVER_EVERY_S", "10"))
@@ -85,7 +86,7 @@ def main() -> None:
                 dirty = True
             if dirty and time.monotonic() - last_silver >= silver_every_s:
                 try:
-                    filas = silver.build(bronze_dir, silver_db)
+                    filas = silver.build(bronze_dir, silver_db, gold_dir)
                     if filas:
                         log.info("silver: %s", filas)
                     dirty = False

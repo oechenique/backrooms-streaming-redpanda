@@ -5,10 +5,11 @@ WORKDIR /app/consumer
 COPY consumer/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY consumer/app.py consumer/bronze.py consumer/silver.py consumer/silver.sql consumer/consulta.py ./
+COPY consumer/app.py consumer/bronze.py consumer/silver.py consumer/silver.sql consumer/gold.py consumer/gold.sql consumer/consulta.py ./
 
 ENV PYTHONUNBUFFERED=1 \
     BRONZE_DIR=/data/bronze \
-    SILVER_DB=/data/silver/backrooms.duckdb
+    SILVER_DB=/data/silver/backrooms.duckdb \
+    GOLD_DIR=/data/gold
 USER nobody
 CMD ["python", "app.py"]
