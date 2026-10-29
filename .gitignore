@@ -8,3 +8,10 @@ __pycache__/
 .pytest_cache/
 consumer/.venv/
 data/
+
+# Video (Remotion): se versiona solo el código; clips, narración, renders y la key quedan afuera.
+video/.env
+video/clips/
+video/audio/
+video/out/
+video/node_modules/
