@@ -5,3 +5,5 @@ dist
 collector/.venv
 **/__pycache__
 .env
+consumer/.venv
+data

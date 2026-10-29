@@ -1,6 +1,7 @@
-# F2: Redpanda + Redpanda Console + collector. Todo local, costo cero.
+# Redpanda + Redpanda Console + collector (F2) + consumer (F3). Todo local, costo cero.
 #   docker compose up --build
 # Console: http://localhost:8080 · collector: http://localhost:8000/health · Kafka desde el host: localhost:19092
+# Bronze (Parquet) y Silver (DuckDB) quedan en ./data
 
 name: backrooms
 
@@ -80,6 +81,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Lee los dos tópicos, escribe Bronze en Parquet (commit de offsets después de escribir) y reconstruye Silver.
+  consumer:
+    build:
+      context: .
+      dockerfile: consumer/Dockerfile
+    depends_on:
+      redpanda-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      TOPIC: ${TOPIC:-backrooms.eventos}
+      DLQ_TOPIC: ${DLQ_TOPIC:-backrooms.eventos.dlq}
+      GROUP_ID: ${CONSUMER_GROUP:-backrooms-consumer}
+    volumes:
+      - ./data:/data
+    stop_grace_period: 15s
 
 volumes:
   redpanda-data:
