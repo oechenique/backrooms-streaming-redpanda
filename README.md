@@ -35,6 +35,10 @@ El mundo no se guarda: es una función de `seed` y coordenadas. Con los eventos 
 - [ ] F4 Gold con dbt — **pendiente, post-Halloween** (F5 se adelantó con un Gold liviano que exporta el consumer)
 - [x] F5 El mapa de los perdidos
 - [ ] F6 Mobile y deploy
+  - [ ] **Antes de la telemetría pública:** investigar la pérdida de eventos de la sesión `b8a47ebd` (0.5.0, 29/10).
+    Bronze tiene sus eventos solo hasta las 16:24:50 UTC; la grabación muestra después una persecución y una captura
+    ("TE ENCONTRÓ") que nunca llegaron: ni persecución, ni captura, ni `sesion_fin`, nada en la DLQ, y el collector no
+    recibió nada hasta la sesión siguiente. Mientras tanto, el % de captura de 0.5.0 puede estar subestimado.
 
 ## Correr
 Requiere Node 20 o más nuevo y Docker (Docker Desktop en Windows/Mac).
