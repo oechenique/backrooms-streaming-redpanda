@@ -1,0 +1,32 @@
+// Deja video/public/ apuntando a clips/ y audio/ (junctions en Windows, symlinks en el resto), para que Remotion
+// los sirva sin exponer el resto de video/ (por ejemplo el .env). Avisa qué clips y audios faltan.
+
+import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const data = JSON.parse(readFileSync(resolve(root, 'src/escenas.json'), 'utf8'));
+
+for (const dir of ['clips', 'audio', 'out', 'public']) mkdirSync(resolve(root, dir), { recursive: true });
+for (const dir of ['clips', 'audio']) {
+  const link = resolve(root, 'public', dir);
+  if (!existsSync(link) && !isLink(link)) symlinkSync(resolve(root, dir), link, 'junction');
+}
+
+const faltanClips = Object.entries(data.clips).filter(([id]) => !existsSync(resolve(root, 'clips', `${id}.mp4`)));
+if (faltanClips.length) {
+  console.log(`Faltan ${faltanClips.length} clips en video/clips/ (se ven como placa de prueba en el Studio):`);
+  for (const [id, desc] of faltanClips) console.log(`  ${id}.mp4  ${desc}`);
+}
+const ids = [...data.video.map((e) => e.id), data.reel.id];
+const faltanAudios = ids.filter((id) => !existsSync(resolve(root, 'audio', `${id}.mp3`)));
+if (faltanAudios.length) console.log(`Faltan narraciones (npm run narrar): ${faltanAudios.join(', ')}`);
+
+function isLink(p) {
+  try {
+    return lstatSync(p).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}

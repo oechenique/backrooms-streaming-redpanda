@@ -1,0 +1,78 @@
+{
+  "fps": 30,
+  "voz": { "voice_id": "pC0w7bOSDTlgiOCrNBX3", "model_id": "eleven_multilingual_v2" },
+  "volumen_juego": 0.12,
+  "clips": {
+    "01-pasillo": "Pasillo del Nivel 0 con luces titilando (10 s)",
+    "02-caceria": "Cacería completa: titileo, silencio, grito, persecución (20 s)",
+    "03-captura": "Una captura (10 s)",
+    "04-escape": "Un escape (10 s)",
+    "05-puerta": "Cruce de una puerta de capa (5 s)",
+    "06-noclip": "Noclip a una pared rota y llegada al estacionamiento (15 s)",
+    "07-estacionamiento": "Estacionamiento, caminata tranquila (10 s)",
+    "08-repo": "Repo de TediusTimmy en GitHub (5 s)",
+    "09-console": "Redpanda Console con eventos entrando (10 s)",
+    "10-terminal": "Terminal con docker compose exec consumer python consulta.py (10 s)",
+    "11-mapa": "Mapa de los perdidos: zoom, tooltip y tabla por versión (20 s)"
+  },
+  "video": [
+    {
+      "id": "01-gancho",
+      "clips": [{ "clip": "01-pasillo" }, { "clip": "02-caceria" }],
+      "texto": "Esta cosa no puede verte. Solo te escucha. Y cada paso que das, cada vez que corres y cada vez que te atrapa queda registrado en un pipeline de datos en tiempo real. Esta es la historia de cómo un chiste de Halloween terminó en un juego de verdad."
+    },
+    {
+      "id": "02-origen",
+      "clips": [{ "clip": "01-pasillo", "velocidad": 0.75 }],
+      "texto": "Todo empezó con una pregunta absurda: ¿se puede detectar un fantasma con la señal del wifi? Resulta que sí se puede detectar movimiento con wifi. Pero en vez de cazar fantasmas en mi casa, decidí meterme en el lugar más inquietante de internet: los Backrooms."
+    },
+    {
+      "id": "03-repo",
+      "clips": [{ "clip": "08-repo" }, { "clip": "01-pasillo" }],
+      "texto": "Buscando proyectos abiertos encontré un repositorio de hace cuatro años. Tres commits. Cero estrellas. Nadie lo había visto. Su autor, Thomas DiModica, había resuelto algo brillante: el mundo no se guarda en ningún lado. Es una función de las coordenadas. Un laberinto de unas nueve unidades astronómicas por lado que existe solo cuando lo miras."
+    },
+    {
+      "id": "04-port",
+      "clips": [{ "clip": "05-puerta" }],
+      "texto": "Revisé diecisiete repositorios, verifiqué cada licencia y porté su generador a TypeScript con Three.js. Le agregué una semilla para que cada mundo sea reproducible y una versión del generador. En el camino encontré que el original podía quedarse colgado: el once por ciento de las zonas nunca terminaba de generarse. Ahora tiene un límite."
+    },
+    {
+      "id": "05-interferencia",
+      "clips": [{ "clip": "02-caceria" }, { "clip": "03-captura" }],
+      "texto": "La criatura se llama La Interferencia. Su oído y su forma de cazar vienen de otro proyecto abierto, liminal. Si caminas en silencio, no te encuentra. Si corres, te escucha desde lejos. Y cuando las luces empiezan a parpadear, ya es tarde."
+    },
+    {
+      "id": "06-noclip",
+      "clips": [{ "clip": "06-noclip" }],
+      "texto": "Si encuentras una pared rota, puedes atravesarla y caer al Nivel 1: un estacionamiento infinito. La única zona segura."
+    },
+    {
+      "id": "07-pipeline",
+      "clips": [{ "clip": "09-console" }, { "clip": "10-terminal" }],
+      "texto": "Cada partida emite eventos: posición, persecuciones, escapes, capturas. Un colector valida cada evento contra un contrato y los envía a Redpanda. Un consumidor los guarda en Parquet en la capa bronce, los limpia en DuckDB en la capa plata y genera la capa oro. Todo corre en contenedores, en mi computadora, a costo cero."
+    },
+    {
+      "id": "08-datos",
+      "clips": [{ "clip": "11-mapa" }],
+      "texto": "Con las primeras partidas los datos fueron claros: cien por ciento de capturas. La criatura arrancaba a seis metros y en un laberinto no había escapatoria. Ajusté la distancia y la velocidad con esa evidencia. ¿El resultado? Cada vez que me persiguió, me atrapó. Cien por ciento otra vez. Pero los datos mostraron otra cosa: en la mitad de mis partidas nunca llegó a cazarme, porque encontré una pared rota a tiempo. Correr no sirve. La única forma de sobrevivir es salir del nivel."
+    },
+    {
+      "id": "09-mapa",
+      "clips": [{ "clip": "11-mapa", "desde": 10 }],
+      "texto": "Como el mundo es una función, no hace falta guardarlo. Con los eventos alcanza para reconstruir el mapa de cada partida: por dónde se perdió la gente y dónde la atraparon."
+    },
+    {
+      "id": "10-cierre",
+      "clips": [{ "clip": "01-pasillo" }],
+      "apagar": true,
+      "texto": "Gracias a Thomas DiModica por un repo que merecía mucho más que cero estrellas. El código está en mi GitHub. Feliz Halloween. Y si escuchas algo detrás de ti… no corras."
+    }
+  ],
+  "reel": {
+    "id": "reel",
+    "clips": [{ "clip": "02-caceria" }, { "clip": "09-console" }, { "clip": "11-mapa" }, { "clip": "01-pasillo" }],
+    "apagar": true,
+    "texto": "Esta criatura no puede verte, solo te escucha. Hice un juego de los Backrooms donde cada paso es un evento en tiempo real: va a Redpanda, se guarda en Parquet y DuckDB y termina en un mapa de dónde se pierde la gente. Las primeras partidas dieron cien por ciento de capturas. Ajusté el juego con datos y volví a perder siempre. Los datos me dijeron que la única salida es atravesar una pared. Todo empezó con un repo de cero estrellas que merecía mucho más. ¿Te animas a entrar?"
+  },
+  "miniatura": { "clip": "01-pasillo", "segundo": 4, "titulo": "ME PERDÍ EN LOS BACKROOMS" }
+}
