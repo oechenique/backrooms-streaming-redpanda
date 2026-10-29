@@ -10,8 +10,13 @@ export const VOLUMEN_JUEGO = data.volumen_juego;
 /** Aire entre escenas: el clip sigue medio segundo después de que termina la voz (no después de la última). */
 export const AIRE_FRAMES = Math.round(data.aire_s * FPS);
 
+/** Visuales generados en Remotion (src/visuales/), en lugar de un clip grabado. */
+export type Visual = 'laberinto' | 'semillas' | 'pipeline' | 'rastros';
+
+/** Un clip grabado (`clip`) o un visual generado (`visual`). */
 export interface ClipRef {
-  clip: string;
+  clip?: string;
+  visual?: Visual;
   /** Segundo del clip desde el que arranca. */
   desde?: number;
   velocidad?: number;
@@ -25,9 +30,11 @@ export interface Item {
   apagar?: boolean;
 }
 
-export const VIDEO: Item[] = data.video;
-export const REEL: Item = data.reel;
+export const VIDEO = data.video as Item[];
+export const REEL = data.reel as Item;
 export const MINIATURA = data.miniatura;
+/** Mundo de los visuales generados: la seed del día de las grabaciones (las partidas 0.5.0). */
+export const VISUALES = data.visuales;
 
 export const clipPath = (clip: string) => `clips/${clip}.mp4`;
 export const audioPath = (id: string) => `audio/${id}.mp3`;

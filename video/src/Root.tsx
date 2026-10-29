@@ -1,5 +1,5 @@
 import { Composition, Still } from 'remotion';
-import { AIRE_FRAMES, duracion, FPS, MINIATURA, REEL, VIDEO, type Item } from './medios';
+import { AIRE_FRAMES, duracion, FPS, REEL, VIDEO, type Item } from './medios';
 import { Miniatura } from './Miniatura';
 import { Narrado } from './Narrado';
 
@@ -33,7 +33,6 @@ export const RemotionRoot: React.FC = () => (
       defaultProps={{ items: [REEL], frames: [] }}
       calculateMetadata={metadata([REEL])}
     />
-    {/* `segundo` se puede mover desde el panel de props del Studio hasta que se vea la silueta. */}
-    <Still id="Miniatura" component={Miniatura} width={1280} height={720} defaultProps={{ segundo: MINIATURA.segundo }} />
+    <Still id="Miniatura" component={Miniatura} width={1280} height={720} />
   </>
 );

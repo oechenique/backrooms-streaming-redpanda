@@ -1,8 +1,13 @@
 // Escenas narradas una detrás de otra: el clip (o los clips, en partes iguales) con el audio del juego bajito y la
-// narración encima. Sin texto en pantalla; la placa solo aparece si falta un clip, para revisar en el Studio.
+// narración encima. Algunas partes son visuales generados (src/visuales/) en vez de un clip grabado. Sin texto en pantalla; la placa solo aparece si falta un clip, para revisar en el Studio.
 
 import { AbsoluteFill, Html5Audio, Html5Video, interpolate, Sequence, Series, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
-import { audioPath, clipPath, existe, FPS, VOLUMEN_JUEGO, type ClipRef, type Item } from './medios';
+import { audioPath, clipPath, existe, FPS, VOLUMEN_JUEGO, type ClipRef, type Item, type Visual } from './medios';
+import { Laberinto, Semillas } from './visuales/Laberinto';
+import { Pipeline } from './visuales/Pipeline';
+import { Rastros } from './visuales/Rastros';
+
+const VISUALES: Record<Visual, React.FC<{ frames: number }>> = { laberinto: Laberinto, semillas: Semillas, pipeline: Pipeline, rastros: Rastros };
 
 export interface NarradoProps extends Record<string, unknown> {
   items: Item[];
@@ -25,16 +30,15 @@ const Escena: React.FC<{ item: Item; frames: number }> = ({ item, frames }) => {
   const parte = Math.floor(frames / item.clips.length);
   return (
     <AbsoluteFill>
-      {item.clips.map((c, i) => (
-        <Sequence
-          key={i}
-          from={i * parte}
-          durationInFrames={i === item.clips.length - 1 ? frames - i * parte : parte}
-          name={c.clip}
-        >
-          <Clip refClip={c} />
-        </Sequence>
-      ))}
+      {item.clips.map((c, i) => {
+        const dur = i === item.clips.length - 1 ? frames - i * parte : parte;
+        const V = c.visual && VISUALES[c.visual];
+        return (
+          <Sequence key={i} from={i * parte} durationInFrames={dur} name={c.clip ?? c.visual}>
+            {V ? <V frames={dur} /> : <Clip refClip={c} />}
+          </Sequence>
+        );
+      })}
       {existe(audioPath(item.id)) && <Html5Audio src={staticFile(audioPath(item.id))} />}
       {item.apagar && <Apagon frames={frames} />}
     </AbsoluteFill>
@@ -42,7 +46,7 @@ const Escena: React.FC<{ item: Item; frames: number }> = ({ item, frames }) => {
 };
 
 const Clip: React.FC<{ refClip: ClipRef }> = ({ refClip }) => {
-  const path = clipPath(refClip.clip);
+  const path = clipPath(refClip.clip!);
   if (!existe(path)) return <Placa texto={`falta ${path}`} />;
   return (
     <Html5Video

@@ -1,5 +1,6 @@
-// Deja video/public/ apuntando a clips/ y audio/ (junctions en Windows, symlinks en el resto), para que Remotion
-// los sirva sin exponer el resto de video/ (por ejemplo el .env). Avisa qué clips y audios faltan.
+// Deja video/public/ apuntando a clips/, audio/ y al Gold del consumer (data/gold, para los rastros), con junctions en
+// Windows y symlinks en el resto, para que Remotion los sirva sin exponer el resto de video/ (por ejemplo el .env).
+// Avisa qué clips y audios faltan.
 
 import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -9,10 +10,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const data = JSON.parse(readFileSync(resolve(root, 'src/escenas.json'), 'utf8'));
 
 for (const dir of ['clips', 'audio', 'out', 'public']) mkdirSync(resolve(root, dir), { recursive: true });
-for (const dir of ['clips', 'audio']) {
+const links = { clips: resolve(root, 'clips'), audio: resolve(root, 'audio'), gold: resolve(root, '../data/gold') };
+for (const [dir, target] of Object.entries(links)) {
   const link = resolve(root, 'public', dir);
-  if (!existsSync(link) && !isLink(link)) symlinkSync(resolve(root, dir), link, 'junction');
+  if (!existsSync(link) && !isLink(link) && existsSync(target)) symlinkSync(target, link, 'junction');
 }
+if (!existsSync(links.gold)) console.log('Falta data/gold (lo exporta el consumer): el visual de rastros queda vacío.');
 
 const faltanClips = Object.entries(data.clips).filter(([id]) => !existsSync(resolve(root, 'clips', `${id}.mp4`)));
 if (faltanClips.length) {

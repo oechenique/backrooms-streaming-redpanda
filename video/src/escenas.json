@@ -10,7 +10,7 @@
     "01-pasillo": "Pasillo del Nivel 0 con luces titilando (10 s)",
     "02-caceria": "Cacería completa: titileo, silencio, grito, persecución (20 s)",
     "03-captura": "Una captura (10 s)",
-    "04-escape": "Un escape (10 s)",
+    "04-escape": "Un escape (10 s) — sin grabar: ninguna grabación tiene un escape",
     "05-puerta": "Cruce de una puerta de capa (5 s)",
     "06-noclip": "Noclip a una pared rota y llegada al estacionamiento (15 s)",
     "07-estacionamiento": "Estacionamiento, caminata tranquila (10 s)",
@@ -27,7 +27,8 @@
           "clip": "01-pasillo"
         },
         {
-          "clip": "02-caceria"
+          "clip": "02-caceria",
+          "desde": 12
         }
       ],
       "texto": "Esta cosa no puede verte. Solo te escucha. Y cada paso que das, cada vez que corres y cada vez que te atrapa queda registrado en un pipeline de datos en tiempo real. Esta es la historia de cómo un chiste de Halloween terminó en un juego de verdad."
@@ -49,7 +50,7 @@
           "clip": "08-repo"
         },
         {
-          "clip": "01-pasillo"
+          "visual": "laberinto"
         }
       ],
       "texto": "Buscando proyectos abiertos encontré un repositorio de hace cuatro años. Tres commits. Cero estrellas. Nadie lo había visto. Su autor, Thomas DiModica, había resuelto algo brillante: el mundo no se guarda en ningún lado. Es una función de las coordenadas. Un laberinto que existe solo cuando lo miras: según sus propios cálculos, unas nueve unidades astronómicas por lado."
@@ -57,6 +58,9 @@
     {
       "id": "04-port",
       "clips": [
+        {
+          "visual": "semillas"
+        },
         {
           "clip": "05-puerta"
         }
@@ -91,6 +95,9 @@
       "id": "07-pipeline",
       "clips": [
         {
+          "visual": "pipeline"
+        },
+        {
           "clip": "09-console"
         },
         {
@@ -103,17 +110,24 @@
       "id": "08-datos",
       "clips": [
         {
+          "clip": "10-terminal",
+          "desde": 2
+        },
+        {
           "clip": "11-mapa"
         }
       ],
-      "texto": "Con las primeras partidas los datos fueron claros: dos persecuciones, dos capturas. Cien por ciento. La criatura arrancaba a seis metros y me atrapaba en segundos; una vez, en un segundo y medio. Pero los datos mostraron otra cosa: en la mitad de mis partidas nunca llegó a cazarme, y en esas dos partidas atravesé una pared rota y llegué al Nivel 1. Con esa evidencia ajusté el juego: ahora la cacería no puede arrancar a menos de diez metros, y la criatura corre a dos coma seis metros por segundo, contra mis tres coma cuatro. ¿Alcanza para escapar? Eso lo van a decir las próximas partidas."
+      "texto": "Con las primeras partidas los datos fueron claros: dos persecuciones, dos capturas. La criatura arrancaba a seis metros y me atrapaba en segundos; una vez, en un segundo y medio. Con esa evidencia ajusté el juego: la cacería no puede arrancar a menos de diez metros, y la criatura corre a dos coma seis metros por segundo, contra mis tres coma cuatro. Después del ajuste jugué seis partidas más: dos persecuciones, que arrancaron a casi once metros, y dos escapes. Uno atravesando una pared rota, a los cinco segundos y medio. El otro, a los treinta segundos, cuando la criatura se retiró. Cero capturas registradas. Pero en una de mis grabaciones me atrapa, y esa captura nunca llegó al pipeline. Dos persecuciones no alcanzan para cantar victoria, y un evento perdido es el próximo problema a resolver."
     },
     {
       "id": "09-mapa",
       "clips": [
         {
+          "visual": "rastros"
+        },
+        {
           "clip": "11-mapa",
-          "desde": 10
+          "desde": 16
         }
       ],
       "texto": "Como el mundo es una función, no hace falta guardarlo. Con los eventos alcanza para reconstruir el mapa de cada partida: por dónde se perdió la gente y dónde la atraparon."
@@ -133,24 +147,36 @@
     "id": "reel",
     "clips": [
       {
-        "clip": "02-caceria"
+        "clip": "02-caceria",
+        "desde": 12
       },
       {
         "clip": "09-console"
       },
       {
-        "clip": "11-mapa"
+        "clip": "11-mapa",
+        "desde": 16
       },
       {
         "clip": "01-pasillo"
       }
     ],
     "apagar": true,
-    "texto": "Esta criatura no puede verte, solo te escucha. Hice un juego de los Backrooms donde cada paso es un evento en tiempo real: va a Redpanda, se guarda en Parquet y DuckDB y termina en un mapa de dónde se pierde la gente. Las primeras partidas dieron cien por ciento de capturas: me atrapaba en segundos. Las únicas veces que no me cazó, atravesé una pared rota. Ajusté el juego con esos datos; las próximas partidas van a decir si alcanza. Todo empezó con un repo de cero estrellas que merecía mucho más. ¿Te animas a entrar?"
+    "texto": "Esta criatura no puede verte, solo te escucha. Hice un juego de los Backrooms donde cada paso es un evento en tiempo real: va a Redpanda, se guarda en Parquet y DuckDB y termina en un mapa de dónde se pierde la gente. En las primeras partidas me cazó dos veces y las dos me atrapó. Ajusté el juego con esos datos, y en las seis partidas siguientes me escapé las dos veces que me cazó. Aunque en una grabación me atrapa, y esa captura nunca llegó a los datos. Todo empezó con un repo de cero estrellas que merecía mucho más. ¿Te animas a entrar?"
   },
   "miniatura": {
     "clip": "02-caceria",
-    "segundo": 12,
+    "segundo": 19.6,
     "titulo": "ME PERDÍ EN LOS BACKROOMS"
+  },
+  "visuales": {
+    "seed": 3543714672,
+    "world_v": 3,
+    "semillas": [
+      3543714672,
+      363290355,
+      1879380340,
+      1628017017
+    ]
   }
 }
