@@ -1,0 +1,9 @@
+# Deploy de Vercel: solo el juego. Afuera lo local, lo pesado y lo que no hace falta para el build.
+.env
+data/
+research/
+video/
+collector/
+consumer/
+dist/
+dist-dashboard/
