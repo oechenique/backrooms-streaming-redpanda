@@ -6,7 +6,7 @@ datos se ajustó el juego: la captura bajó de 100 % a 0 % entre dos versiones.*
 
 <p align="center"><img src="docs/img/caceria.gif" alt="La Interferencia aparece en un pasillo del Nivel 0 y atrapa al jugador" width="480"></p>
 
-Proyecto del portfolio de Data Engineering de Gastón. Código, documentación y commits en español.
+Especial de Halloween, fuera de la hexalogía del portfolio de Data Engineering de Gastón. Código, documentación y commits en español.
 
 - **Jugarlo:** https://lost-in-the-pipeline.vercel.app (sin telemetría, ver [Límites](#límites-y-lo-que-haría-en-un-caso-real))
 - **Video (3 min):** https://www.youtube.com/watch?v=ChZ3_jd4N_c
