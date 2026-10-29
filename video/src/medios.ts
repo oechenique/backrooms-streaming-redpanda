@@ -1,4 +1,5 @@
-// Escenas, clips y narraciones. El texto de cada escena vive en escenas.json (lo lee también scripts/narrar.mjs).
+// Escenas, clips y narraciones. El texto de cada escena sale de guion-backrooms.md (scripts/guion.mjs lo copia a
+// escenas.json).
 
 import { getAudioDurationInSeconds } from '@remotion/media-utils';
 import { getStaticFiles, staticFile } from 'remotion';
@@ -6,6 +7,8 @@ import data from './escenas.json';
 
 export const FPS = data.fps;
 export const VOLUMEN_JUEGO = data.volumen_juego;
+/** Aire entre escenas: el clip sigue medio segundo después de que termina la voz (no después de la última). */
+export const AIRE_FRAMES = Math.round(data.aire_s * FPS);
 
 export interface ClipRef {
   clip: string;

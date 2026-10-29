@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "narrar": "node scripts/narrar.mjs",
+    "guion": "node scripts/guion.mjs",
     "preparar": "node scripts/preparar.mjs",
     "studio": "npm run preparar && remotion studio src/index.ts",
     "typecheck": "tsc --noEmit"

@@ -1,6 +1,8 @@
 // Narración con ElevenLabs: un mp3 por escena del video y uno para el reel, en video/audio/<id>.mp3.
+// Los textos salen de guion-backrooms.md (se copian a src/escenas.json, ver guion.mjs).
 // La key sale de video/.env (ELEVENLABS_API_KEY); nunca se imprime ni se escribe en otro lado.
-// Solo regenera lo que cambió (texto, voz o modelo): audio/manifest.json guarda un hash por escena.
+// Solo regenera lo que cambió (su texto, la voz o el modelo): audio/manifest.json guarda un hash por escena. El texto
+// de las escenas vecinas se manda para la entonación, pero no entra en el hash: cambiar una escena no rehace las otras.
 //
 //   npm run narrar                 # lo que falte o haya cambiado
 //   npm run narrar -- 08-datos     # solo esas escenas (se regeneran aunque no hayan cambiado)
@@ -9,9 +11,11 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sincronizar } from './guion.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const data = JSON.parse(readFileSync(resolve(root, 'src/escenas.json'), 'utf8'));
+const { data, cambios } = sincronizar();
+if (cambios.length) console.log(`Guion → escenas.json: cambió ${cambios.join(', ')}`);
 const audioDir = resolve(root, 'audio');
 const manifestPath = resolve(audioDir, 'manifest.json');
 
@@ -45,7 +49,7 @@ let made = 0;
 for (const item of items) {
   if (solo.length && !solo.includes(item.id)) continue;
   const hash = createHash('sha256')
-    .update(JSON.stringify([voice_id, model_id, item.texto, item.previous_text ?? null, item.next_text ?? null]))
+    .update(JSON.stringify([voice_id, model_id, item.texto]))
     .digest('hex');
   const out = resolve(audioDir, `${item.id}.mp3`);
   if (!solo.length && existsSync(out) && manifest[item.id] === hash) {

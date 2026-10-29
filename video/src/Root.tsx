@@ -1,12 +1,13 @@
 import { Composition, Still } from 'remotion';
-import { duracion, FPS, REEL, VIDEO, type Item } from './medios';
+import { AIRE_FRAMES, duracion, FPS, MINIATURA, REEL, VIDEO, type Item } from './medios';
 import { Miniatura } from './Miniatura';
 import { Narrado } from './Narrado';
 
-// La duración de cada composición sale de las narraciones (calculateMetadata), escena por escena.
+// La duración de cada composición sale de las narraciones (calculateMetadata), escena por escena, más el aire entre
+// una escena y la siguiente.
 const metadata = (items: Item[]) => async () => {
   const d = await Promise.all(items.map(duracion));
-  const frames = d.map((x) => x.frames);
+  const frames = d.map((x, i) => x.frames + (i < items.length - 1 ? AIRE_FRAMES : 0));
   return { durationInFrames: frames.reduce((a, b) => a + b, 0), props: { items, frames } };
 };
 
@@ -32,6 +33,7 @@ export const RemotionRoot: React.FC = () => (
       defaultProps={{ items: [REEL], frames: [] }}
       calculateMetadata={metadata([REEL])}
     />
-    <Still id="Miniatura" component={Miniatura} width={1280} height={720} />
+    {/* `segundo` se puede mover desde el panel de props del Studio hasta que se vea la silueta. */}
+    <Still id="Miniatura" component={Miniatura} width={1280} height={720} defaultProps={{ segundo: MINIATURA.segundo }} />
   </>
 );
