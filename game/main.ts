@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getStart, levelParams, World, WORLD_V, ZONE_SIZE } from '../world';
+import { daySeed, getStart, levelParams, World, WORLD_V, ZONE_SIZE } from '../world';
 import { Sound } from './audio';
 import { Chunks } from './chunks';
 import { Interferencia, type Tick } from './entity/interferencia';
@@ -14,15 +14,12 @@ import { SHIFT_LAYERS, Shifter } from './shifter';
 import { flickerLightMaterial, noclipMaterial, themeFor, type Theme } from './themes';
 import { ZoneLoader } from './zones';
 
-// Seed por URL (?seed=123): misma seed, mismo mundo. Sin seed se sortea una y se escribe en la URL.
+// Seed por URL (?seed=123): misma seed, mismo mundo. Sin seed, la seed del día (hash de la fecha UTC): todos los que
+// entran ese día juegan el mismo mundo.
 function readSeed(): number {
-  const url = new URL(location.href);
-  const raw = url.searchParams.get('seed');
+  const raw = new URL(location.href).searchParams.get('seed');
   if (raw && /^\d{1,10}$/.test(raw) && Number(raw) <= 0xffffffff) return Number(raw);
-  const seed = crypto.getRandomValues(new Uint32Array(1))[0];
-  url.searchParams.set('seed', String(seed));
-  history.replaceState(null, '', url);
-  return seed;
+  return daySeed(new Date());
 }
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;

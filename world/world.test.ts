@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
-import { Dir, Edge, generateZone, getStart, levelParams, World, WORLD_V, ZONE_SIZE, type Zone } from './index';
+import { daySeed, Dir, Edge, generateZone, getStart, levelParams, World, WORLD_V, ZONE_SIZE, type Zone } from './index';
 import { Lcg } from './lcg';
 
 const N = ZONE_SIZE;
@@ -295,6 +295,16 @@ describe('noclip y pilares', () => {
       }
     // Grilla de 4 sobre 256×256: ~4.000 esquinas; casi todas tienen pilar (salvo pegadas a una pared).
     expect(pillars).toBeGreaterThan(3500);
+  });
+});
+
+describe('daySeed', () => {
+  it('depende solo de la fecha UTC', () => {
+    const s = daySeed(new Date('2026-10-31T00:00:00Z'));
+    expect(daySeed(new Date('2026-10-31T23:59:59.999Z'))).toBe(s);
+    expect(daySeed(new Date('2026-10-31T01:30:00+03:00'))).not.toBe(s); // en UTC todavía es el 30
+    expect(daySeed(new Date('2026-11-01T00:00:00Z'))).not.toBe(s);
+    expect(Number.isInteger(s) && s >= 0 && s <= 0xffffffff).toBe(true);
   });
 });
 

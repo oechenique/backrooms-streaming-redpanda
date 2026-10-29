@@ -1,7 +1,7 @@
 // API pública del generador. Módulo puro: sin DOM, sin Three, sin azar ni reloj.
 // El mundo no se guarda: cada zona es una función de (seed, WORLD_V, x, y, z).
 
-import { mix, RngKind } from './hash';
+import { harden, mix, RngKind } from './hash';
 import { Lcg } from './lcg';
 import { levelParams, LEVELS, type LevelParams } from './levels';
 import { Dir, Edge, generateZone, ZONE_SIZE, type Zone } from './zone';
@@ -118,6 +118,16 @@ export class World {
 const key = (x: number, y: number, z: number, level: number) => `${level}:${x >>> 0},${y >>> 0},${z >>> 0}`;
 // 53 bits altos del hash como número en [0, 1).
 const unit = (h: bigint) => Number(h >> 11n) / 2 ** 53;
+
+/**
+ * Seed del día: hash de la fecha UTC. Todos los que entran el mismo día sin ?seed= caen en el mismo mundo, y el mapa
+ * de los perdidos la usa por defecto. Recibe la fecha (el módulo no lee el reloj). No cambia ningún mundo: WORLD_V
+ * sigue igual.
+ */
+export function daySeed(date: Date): number {
+  const ymd = date.getUTCFullYear() * 10000 + (date.getUTCMonth() + 1) * 100 + date.getUTCDate();
+  return Number(harden(BigInt(ymd)) & 0xffffffffn);
+}
 
 export interface Start {
   /** Celda global de arranque. */
