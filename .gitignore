@@ -5,3 +5,5 @@ dist/
 collector/.venv/
 __pycache__/
 .pytest_cache/
+consumer/.venv/
+data/
