@@ -49,7 +49,7 @@ y cómo) y una propuesta de motor para el port (web y celu). **Frenar acá y esp
 **F2 — Contrato + collector + Redpanda.** `contracts/event.schema.json`, collector, tópicos `backrooms.eventos` y `backrooms.eventos.dlq` (el juego tiene más de un nivel), envío en batch desde el juego.
 Criterio: `docker compose up` + jugar = eventos en Redpanda Console.
 **F3 — Procesamiento.** Bronze (crudo) y Silver (sesiones, persecuciones con duración y resultado) en Parquet/DuckDB.
-**F4 — Gold con dbt.** Sesiones, supervivencia en persecuciones, zonas más letales, tests de contrato. Criterio: `dbt build` verde.
+**F4 — Gold con dbt.** *Pendiente, post-Halloween (F5 se adelantó con un Gold liviano exportado por el consumer).* Sesiones, supervivencia en persecuciones, zonas más letales, tests de contrato. Criterio: `dbt build` verde.
 **F5 — El mapa de los perdidos.** Reconstruye el mundo desde `seed` + versión del generador y pinta el heatmap.
 **F6 — Mobile y deploy.** PWA / app y hosting de la ingesta pública. Recién acá se habla de nube.
 

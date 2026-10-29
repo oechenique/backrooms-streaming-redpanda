@@ -15,13 +15,10 @@ Collector FastAPI ── inválidos ──► backrooms.eventos.dlq
 Redpanda ── backrooms.eventos
    │
    ▼
-Consumer Python ──► Bronze (Parquet) ──► Silver (sesiones, persecuciones)
-                                              │
-                                              ▼
-                                       dbt-duckdb ──► Gold
-                                              │
-                                              ▼
-                                  El mapa de los perdidos
+Consumer Python ──► Bronze (Parquet) ──► Silver (DuckDB) ──► Gold liviano (JSON / Parquet)
+                                              │                       │
+                                              ▼                       ▼
+                                   dbt-duckdb ──► Gold (F4)   El mapa de los perdidos
 ```
 
 El mundo no se guarda: es una función de `seed` y coordenadas. Con los eventos alcanza para reconstruir el mapa de cualquier partida.
@@ -35,8 +32,8 @@ El mundo no se guarda: es una función de `seed` y coordenadas. Con los eventos 
   - [x] F1d Noclip más frecuente y visible, llegada segura, cuerpo y grito nuevos de La Interferencia
 - [x] F2 Contrato + collector + Redpanda
 - [x] F3 Procesamiento (Bronze / Silver)
-- [ ] F4 Gold con dbt
-- [ ] F5 El mapa de los perdidos
+- [ ] F4 Gold con dbt — **pendiente, post-Halloween** (F5 se adelantó con un Gold liviano que exporta el consumer)
+- [x] F5 El mapa de los perdidos
 - [ ] F6 Mobile y deploy
 
 ## Correr
@@ -46,6 +43,7 @@ Requiere Node 20 o más nuevo y Docker (Docker Desktop en Windows/Mac).
 docker compose up --build -d   # Redpanda + Console + collector + consumer (primera vez: baja imágenes y construye)
 npm install
 npm run dev                    # juego en http://localhost:5173 (también en la red local, para el celu)
+npm run dash                   # el mapa de los perdidos en http://localhost:5174
 ```
 
 Jugá un rato y mirá los eventos en **Redpanda Console**: http://localhost:8080 → Topics → `backrooms.eventos`
@@ -58,6 +56,7 @@ Jugá un rato y mirá los eventos en **Redpanda Console**: http://localhost:8080
 ```bash
 npm test           # tests TS: generador, oído, director, colisión, puertas, cola de envío y contrato
 npm run build      # typecheck + build estático en dist/
+npm run dash:build # el mapa, estático en dist-dashboard/ (lee /gold/: servilo con `vite preview --config dashboard/vite.config.ts`)
 docker compose down            # apaga todo (los eventos quedan en el volumen; `down -v` los borra)
 ```
 
@@ -88,8 +87,13 @@ data/silver/backrooms.duckdb
 |---|---|
 | `eventos` | eventos únicos por `event_id` (gana la primera copia en Kafka), con columnas tipadas y `data` como JSON |
 | `sesiones` | inicio, fin, `duracion_s`, `distancia_m` (tramos dentro del mismo nivel y capa; celda = 2.2 m), `niveles_visitados`, `como_termino` (`captura`, `salida` o `sin_cierre` si no llegó `sesion_fin`), conteos de persecuciones por resultado y noclips |
-| `persecuciones` | inicio, fin, `duracion_s`, `resultado` (`escape` con su `via`, `captura` o `perdida` = pérdida de rastro: sin cierre, termina en la próxima persecución o el fin de la sesión), distancia inicial, celdas de inicio y fin |
+| `persecuciones` | inicio, fin, `duracion_s`, `resultado` (`escape` con su `via`, `captura`, `perdida` = pérdida de rastro: sin cierre en una sesión que ya cerró, o `en_curso`: sin cierre y la sesión sigue abierta), distancia inicial, celdas de inicio y fin |
 | `noclips` | origen, destino, celda y, si fue un escape, el `persecucion_id` |
+
+Cada vez que reconstruye Silver, el consumer exporta además un **Gold liviano** en `data/gold/` (así el mapa no abre
+la base mientras se reemplaza): `index.json` con el resumen por mundo (seed + `world_v`), `mapa/<seed>-v<world_v>.json`
+con los rastros por celda (los tramos entre eventos seguidos se rellenan) y las marcas por capa, y los mismos datos en
+`rastros.parquet`, `marcas.parquet` y `resumen.parquet`. El % de captura es sobre las persecuciones terminadas.
 
 Consultas (en el contenedor, en solo lectura):
 ```bash
@@ -98,6 +102,15 @@ docker compose exec consumer python consulta.py "SELECT * FROM noclips"
 ```
 Cambiar `CONSUMER_GROUP` en `.env` (o, con el consumer parado, borrar `./data` y el grupo con
 `docker compose exec redpanda rpk group delete backrooms-consumer`) relee los tópicos desde el principio.
+
+### El mapa de los perdidos (F5)
+`npm run dash` → http://localhost:5174. Elegís seed (por defecto la del día; si nadie la jugó, la última jugada), nivel
+y capa. El laberinto se reconstruye en el navegador con `world/`, el mismo generador del juego, solo si el `world_v`
+de los datos es el actual (si no, se ven los rastros sin paredes y un aviso). Encima: heatmap de rastros, capturas (✕),
+escapes (▲) y noclips (◆), con tooltip y una tabla de marcas; arriba, sesiones, persecuciones, % de captura y duración
+media de la sesión. Se arrastra, se hace zoom con la rueda o pellizcando, y la URL guarda seed, nivel y capa. Muestra
+la capa tal como la genera el mundo: los bloques que cambian durante la partida (`laberinto_cambio`) no se reflejan.
+Lee solo `/gold/*.json`: el servidor de Vite no expone Bronze ni Silver.
 
 ### Cómo viajan los eventos
 ```
@@ -111,8 +124,8 @@ juego ──(cada 2 s, lote JSON; sendBeacon al cerrar)──► /api/events (pr
 - Entrega **at-least-once**: un evento puede llegar dos veces; se deduplica por `event_id` en Silver.
 - Privacidad: el collector corre sin access log y el proxy no agrega la IP.
 
-- **Seed**: `?seed=123` en la URL (entero de 0 a 4294967295). Sin seed se sortea una y queda escrita en la URL:
-  recargar da el mismo mundo.
+- **Seed**: `?seed=123` en la URL (entero de 0 a 4294967295). Sin seed se juega la **seed del día** (hash de la fecha
+  UTC, `daySeed` en `world/`): todos los que entran ese día caen en el mismo mundo.
 - **Desktop**: click para entrar, WASD o flechas, mouse para mirar (si el navegador niega el pointer lock, se mira
   arrastrando), Shift para correr, C para caminar en silencio, Esc para pausar.
 - **Celu**: mitad izquierda = joystick analógico (poco recorrido = en silencio, a fondo = corre), mitad derecha = mirar.
@@ -132,7 +145,8 @@ game/    render Three.js por bloques de 16×16 celdas, input, colisión, textura
   audio.ts                   zumbido, pasos, respiración y estática, todo sintetizado con WebAudio
   events.ts                  eventos con el contrato v1
 collector/   FastAPI: valida contra contracts/ y publica en Redpanda
-consumer/    Redpanda → Bronze (Parquet) → Silver (DuckDB)
+consumer/    Redpanda → Bronze (Parquet) → Silver (DuckDB) → Gold liviano (JSON / Parquet)
+dashboard/   el mapa de los perdidos: world/ en canvas 2D + Gold
 ```
 
 ### Cómo se juega
