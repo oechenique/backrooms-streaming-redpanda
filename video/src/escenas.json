@@ -117,7 +117,7 @@
           "clip": "11-mapa"
         }
       ],
-      "texto": "Con las primeras partidas los datos fueron claros: dos persecuciones, dos capturas. La criatura arrancaba a seis metros y me atrapaba en segundos; una vez, en un segundo y medio. Con esa evidencia ajusté el juego: la cacería no puede arrancar a menos de diez metros, y la criatura corre a dos coma seis metros por segundo, contra mis tres coma cuatro. Después del ajuste jugué seis partidas más: dos persecuciones, que arrancaron a casi once metros, y dos escapes. Uno atravesando una pared rota, a los cinco segundos y medio. El otro, a los treinta segundos, cuando la criatura se retiró. Cero capturas registradas. Pero en una de mis grabaciones me atrapa, y esa captura nunca llegó al pipeline. Dos persecuciones no alcanzan para cantar victoria, y un evento perdido es el próximo problema a resolver."
+      "texto": "Con las primeras partidas los datos fueron claros: dos persecuciones, dos capturas. La criatura arrancaba a seis metros y me atrapaba en segundos; una vez, en un segundo y medio. Con esa evidencia ajusté el juego: la cacería no puede arrancar a menos de diez metros, y la criatura corre a dos coma seis metros por segundo, contra mis tres coma cuatro. Después del ajuste jugué seis partidas más: dos persecuciones, que arrancaron a casi once metros, y dos escapes. Uno atravesando una pared rota, a los cinco segundos y medio. El otro, a los treinta segundos, cuando la criatura se retiró. Cero capturas registradas. Dos persecuciones no alcanzan para cantar victoria. Y hubo una captura que se ve en pantalla pero nunca llegó al pipeline. Hasta los datos tienen fantasmas."
     },
     {
       "id": "09-mapa",
