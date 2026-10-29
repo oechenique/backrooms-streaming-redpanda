@@ -69,15 +69,21 @@ def partidas():
     b.ev(7, "captura", {"persecucion_id": hunt3, "duracion_s": 4.0, "humor": "hunt"})
     b.ev(7, "sesion_fin", {"motivo": "captura"})
 
-    c = Partida()  # cerró la pestaña en medio de una persecución: sin cierre ni sesion_fin
+    c = Partida()  # sigue jugando (o la pestaña murió sin sesion_fin): la persecución queda en curso
     c.ev(0, "sesion_inicio", {"zona": "0,0,0"})
     hunt4 = str(uuid.uuid4())
     c.ev(5, "persecucion_inicio", {"persecucion_id": hunt4, "distancia_m": 15})
     c.ev(7, "posicion", {"velocidad": 6, "humor": "hunt"})
 
+    e = Partida()  # salió en medio de una persecución: pérdida de rastro
+    e.ev(0, "sesion_inicio", {"zona": "0,0,0"})
+    hunt5 = str(uuid.uuid4())
+    e.ev(2, "persecucion_inicio", {"persecucion_id": hunt5, "distancia_m": 9})
+    e.ev(6, "sesion_fin", {"motivo": "salida"})
+
     d = Partida(debug=True)
     d.ev(0, "sesion_inicio", {"zona": "0,0,0"})
-    return {"a": a, "b": b, "c": c, "d": d, "hunts": (hunt1, hunt2, hunt3, hunt4)}
+    return {"a": a, "b": b, "c": c, "d": d, "e": e, "hunts": (hunt1, hunt2, hunt3, hunt4, hunt5)}
 
 
 def test_bronze_particiona_por_fecha_y_nivel_y_separa_la_dlq(tmp_path, partidas):
@@ -104,7 +110,7 @@ def test_bronze_releer_el_mismo_lote_pisa_el_mismo_archivo(tmp_path, partidas):
 
 @pytest.fixture
 def db(tmp_path, partidas):
-    todos = [e for k in "abcd" for e in partidas[k].events]
+    todos = [e for k in "abcde" for e in partidas[k].events]
     bronze.write(msgs(todos), tmp_path / "bronze", DLQ)
     bronze.write(msgs(partidas["b"].events, start=100), tmp_path / "bronze", DLQ)  # reentrega: duplicados
     filas = silver.build(tmp_path / "bronze", tmp_path / "silver.duckdb")
@@ -115,34 +121,36 @@ def db(tmp_path, partidas):
 
 
 def test_silver_deduplica_y_filtra_debug(db, partidas):
-    assert db.execute("SELECT count(*), count(DISTINCT event_id) FROM eventos").fetchone() == (17, 17)
+    assert db.execute("SELECT count(*), count(DISTINCT event_id) FROM eventos").fetchone() == (20, 20)
     assert db.execute(f"SELECT count(*) FROM eventos WHERE session = '{partidas['d'].session}'").fetchone() == (0,)
 
 
 def test_silver_sesiones(db, partidas):
     rows = {
         r[0]: r[1:]
-        for r in db.sql("SELECT session, duracion_s, distancia_m, niveles_visitados, como_termino, persecuciones, escapes, capturas, perdidas, noclips FROM sesiones").fetchall()
+        for r in db.sql("SELECT session, duracion_s, distancia_m, niveles_visitados, como_termino, persecuciones, escapes, capturas, perdidas, en_curso, noclips FROM sesiones").fetchall()
     }
-    assert rows[partidas["a"].session] == (20.0, round(8 * 2.2, 1), [0, 1], "salida", 2, 2, 0, 0, 1)
-    assert rows[partidas["b"].session] == (7.0, 0.0, [0], "captura", 1, 0, 1, 0, 0)
-    assert rows[partidas["c"].session] == (7.0, 0.0, [0], "sin_cierre", 1, 0, 0, 1, 0)
-    assert len(rows) == 3
+    assert rows[partidas["a"].session] == (20.0, round(8 * 2.2, 1), [0, 1], "salida", 2, 2, 0, 0, 0, 1)
+    assert rows[partidas["b"].session] == (7.0, 0.0, [0], "captura", 1, 0, 1, 0, 0, 0)
+    assert rows[partidas["c"].session] == (7.0, 0.0, [0], "sin_cierre", 1, 0, 0, 0, 1, 0)
+    assert rows[partidas["e"].session] == (6.0, 0.0, [0], "salida", 1, 0, 0, 1, 0, 0)
+    assert len(rows) == 4
 
 
 def test_silver_persecuciones(db, partidas):
-    h1, h2, h3, h4 = partidas["hunts"]
+    h1, h2, h3, h4, h5 = partidas["hunts"]
     rows = {r[0]: r[1:] for r in db.sql("SELECT persecucion_id, duracion_s, resultado, via, distancia_inicial_m FROM persecuciones").fetchall()}
     assert rows == {
         h1: (5.0, "escape", "retirada", 12.5),
         h2: (2.0, "escape", "noclip", 8.0),
         h3: (4.0, "captura", None, 20.0),
-        h4: (2.0, "perdida", None, 15.0),  # pérdida de rastro: hasta el último evento de la sesión
+        h4: (2.0, "en_curso", None, 15.0),  # la sesión no cerró: hasta el último evento recibido
+        h5: (4.0, "perdida", None, 9.0),  # pérdida de rastro: hasta el sesion_fin
     }
 
 
 def test_silver_noclips(db, partidas):
-    _, h2, _, _ = partidas["hunts"]
+    h2 = partidas["hunts"][1]
     assert db.sql("SELECT nivel_origen, nivel_destino, persecucion_id_escapada FROM noclips").fetchall() == [(0, 1, h2)]
 
 

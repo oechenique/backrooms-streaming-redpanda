@@ -31,8 +31,8 @@ WHERE NOT (v->'client'->>'debug')::BOOLEAN
 QUALIFY row_number() OVER (PARTITION BY v->>'event_id' ORDER BY particion, "offset") = 1;
 
 -- Persecuciones: arrancan con persecucion_inicio y las cierra un escape (con su via) o una captura con el mismo
--- persecucion_id. Sin cierre es una pérdida de rastro: termina en la próxima persecución o el fin de la sesión (si
--- no hay, en el último evento de la sesión).
+-- persecucion_id. Sin cierre: si la sesión ya cerró (sesion_fin) es una pérdida de rastro, y termina en la próxima
+-- persecución o el fin de la sesión; si la sesión sigue abierta queda en_curso, hasta el último evento recibido.
 CREATE TABLE persecuciones AS
 WITH inicios AS (
     SELECT data->>'persecucion_id' AS persecucion_id, session, seed, world_v, level, ts AS inicio, x, y, z,
@@ -48,6 +48,9 @@ cierres AS (
     WHERE type IN ('escape', 'captura') AND data->>'persecucion_id' IS NOT NULL
     QUALIFY row_number() OVER (PARTITION BY data->>'persecucion_id' ORDER BY ts, kafka_offset) = 1
 ),
+cerradas AS (
+    SELECT DISTINCT session FROM eventos WHERE type = 'sesion_fin'
+),
 cortes AS (
     SELECT i.persecucion_id,
            coalesce(min(e.ts) FILTER (WHERE e.type IN ('persecucion_inicio', 'sesion_fin')), max(e.ts)) AS fin
@@ -60,7 +63,9 @@ SELECT
     i.inicio,
     coalesce(c.ts, k.fin, i.inicio) AS fin,
     coalesce(c.duracion_s, epoch(coalesce(k.fin, i.inicio) - i.inicio)) AS duracion_s,
-    coalesce(c.type, 'perdida') AS resultado,
+    CASE WHEN c.type IS NOT NULL THEN c.type
+         WHEN i.session IN (SELECT session FROM cerradas) THEN 'perdida'
+         ELSE 'en_curso' END AS resultado,
     c.via,
     c.humor AS humor_captura,
     i.distancia_inicial_m,
@@ -120,7 +125,8 @@ chases AS (
            count(*) AS persecuciones,
            count(*) FILTER (WHERE resultado = 'escape') AS escapes,
            count(*) FILTER (WHERE resultado = 'captura') AS capturas,
-           count(*) FILTER (WHERE resultado = 'perdida') AS perdidas
+           count(*) FILTER (WHERE resultado = 'perdida') AS perdidas,
+           count(*) FILTER (WHERE resultado = 'en_curso') AS en_curso
     FROM persecuciones
     GROUP BY session
 )
@@ -135,6 +141,7 @@ SELECT
     coalesce(c.escapes, 0) AS escapes,
     coalesce(c.capturas, 0) AS capturas,
     coalesce(c.perdidas, 0) AS perdidas,
+    coalesce(c.en_curso, 0) AS en_curso,
     b.noclips
 FROM base b
 JOIN distancias d USING (session)

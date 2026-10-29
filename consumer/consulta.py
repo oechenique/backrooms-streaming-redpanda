@@ -13,7 +13,7 @@ import duckdb
 
 DEFAULT = [
     "SELECT session[:8] AS session, seed, inicio, round(duracion_s) AS duracion_s, distancia_m, niveles_visitados, "
-    "como_termino, persecuciones, escapes, capturas, perdidas, noclips FROM sesiones ORDER BY inicio",
+    "como_termino, persecuciones, escapes, capturas, perdidas, en_curso, noclips FROM sesiones ORDER BY inicio",
     "SELECT session[:8] AS session, inicio, round(duracion_s, 1) AS duracion_s, resultado, via, level, "
     "distancia_inicial_m FROM persecuciones ORDER BY inicio",
 ]
