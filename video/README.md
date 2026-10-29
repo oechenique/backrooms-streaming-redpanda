@@ -1,6 +1,7 @@
 # Video del proyecto (Remotion)
 
-El video de YouTube (16:9, ~3 min), el reel (9:16) y la miniatura, armados con [Remotion](https://www.remotion.dev/).
+El video de YouTube (16:9, ~3 min), el reel (9:16), el Reel Insta (9:16, ~45 s, cortes rápidos y subtítulos) y la
+miniatura, armados con [Remotion](https://www.remotion.dev/).
 Solo se versiona el código y el guion: las grabaciones, los clips, la narración y los renders quedan afuera de git.
 
 | Qué | Dónde |
@@ -34,6 +35,7 @@ de ElevenLabs en la página, y sirve solo `public/`, que apunta a `clips/`, `aud
 ```bash
 npx remotion render src/index.ts Video out/video.mp4 --timeout=120000 --concurrency=2
 npx remotion render src/index.ts Reel out/reel.mp4 --timeout=120000 --concurrency=2
+npx remotion render src/index.ts ReelInsta out/reel-insta.mp4 --timeout=120000 --concurrency=2
 npx remotion still src/index.ts Miniatura out/miniatura.jpg
 ```
 `--timeout=120000 --concurrency=2` hacen falta: con los valores por defecto (28 s y más páginas en paralelo) los clips

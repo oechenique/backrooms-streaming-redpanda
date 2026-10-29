@@ -56,6 +56,31 @@ Formato: 16:9, ~3 min, narración sin texto en pantalla.
 
 ---
 
+## Reel Insta 9:16 (~44 s)
+
+Para Instagram: arranca con el juego, cortes rápidos y subtítulos grandes (mucha gente lo mira sin sonido). Narración
+más corta y con más energía, con la misma voz (`reel_insta.voz_ajustes` en `src/escenas.json`). Cada bloque es un
+audio aparte, para que los cortes acompañen a la voz; los textos van en el orden de los bloques narrados.
+
+**Gancho (sin voz, ~2,5 s):** el grito de la persecución, la silueta y "TE ENCONTRÓ", con el sonido del juego alto.
+
+**Juego:** pasillo, titileo, persecución, silueta, noclip y estacionamiento.
+> Hice un juego de los Backrooms. La criatura no te ve, te escucha. Si corres, te caza. ¿Pared rota? La atraviesas y caes al estacionamiento.
+
+**Pipeline:** el pipeline animado, entero.
+> Pero el juego es la excusa. Cada paso que das es un evento: un colector lo valida contra un contrato, Redpanda lo transmite y un consumidor lo guarda en Parquet y DuckDB. Bronce, plata y oro.
+
+**Tiempo real:** sigue el pipeline animado (no hay grabación de Console con los mensajes entrando).
+> Todo en tiempo real, en Docker, a costo cero.
+
+**Datos:** la tabla de captura por versión del mapa y vuelta a "TE ENCONTRÓ".
+> Con esos datos ajusté la criatura: de dos capturas a dos escapes. Aunque la captura del principio nunca llegó a los datos.
+
+**Mapa:** los rastros del Gold y el mapa de los perdidos; cierra con el link del juego en pantalla.
+> Con los eventos y la semilla del mundo reconstruyo el mapa de los perdidos. ¿Te animas a entrar?
+
+---
+
 ## Clips
 Se cortan de las grabaciones crudas de `video/raw/` con `npm run cortar` (`scripts/cortar.mjs` documenta de dónde sale cada corte). Los visuales generados (laberinto, seeds, pipeline y rastros) están en `src/visuales/`.
 1. Pasillo del Nivel 0 con luces titilando (10 s)

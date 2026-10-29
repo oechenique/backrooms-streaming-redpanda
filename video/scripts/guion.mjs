@@ -2,7 +2,8 @@
 // que usa Remotion para estimar duraciones mientras falta un audio.
 //
 // Formato que se espera en el guion: cada escena del video es un "### N. Título" seguido de una línea "> texto";
-// el reel es la primera línea "> texto" después de "## Reel".
+// el reel es la primera línea "> texto" después de "## Reel"; las de "## Reel Insta" van, en orden, a los bloques
+// narrados (los que tienen `texto`) de reel_insta.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -16,32 +17,35 @@ export function leerGuion() {
   const lines = readFileSync(guionPath, 'utf8').split(/\r?\n/);
   const escenas = new Map();
   let reel = null;
+  const insta = [];
   let escena = null;
   let enReel = false;
+  let enInsta = false;
   for (const line of lines) {
     const h = line.match(/^###\s+(\d+)\./);
     if (h) {
       escena = Number(h[1]);
       continue;
     }
-    if (/^##\s+Reel/.test(line)) {
-      enReel = true;
+    if (/^##\s/.test(line)) {
+      enInsta = /^##\s+Reel Insta/.test(line);
+      enReel = !enInsta && /^##\s+Reel/.test(line);
       escena = null;
       continue;
     }
-    if (/^##\s/.test(line)) enReel = false;
     const q = line.match(/^>\s*(.+)$/);
     if (!q) continue;
     if (escena !== null && !escenas.has(escena)) escenas.set(escena, q[1].trim());
     else if (enReel && reel === null) reel = q[1].trim();
+    else if (enInsta) insta.push(q[1].trim());
   }
-  return { escenas, reel };
+  return { escenas, reel, insta };
 }
 
 /** Copia los textos del guion a escenas.json (por número de escena). Devuelve los datos actualizados. */
 export function sincronizar() {
   const data = JSON.parse(readFileSync(escenasPath, 'utf8'));
-  const { escenas, reel } = leerGuion();
+  const { escenas, reel, insta } = leerGuion();
   if (escenas.size !== data.video.length || reel === null) {
     throw new Error(`El guion tiene ${escenas.size} escenas${reel === null ? ' y no tiene reel' : ''}; escenas.json espera ${data.video.length} y un reel.`);
   }
@@ -54,6 +58,14 @@ export function sincronizar() {
   });
   if (data.reel.texto !== reel) cambios.push(data.reel.id);
   data.reel.texto = reel;
+  const narrados = data.reel_insta.bloques.filter((b) => 'texto' in b);
+  if (insta.length !== narrados.length) {
+    throw new Error(`El guion tiene ${insta.length} textos en el Reel Insta; escenas.json espera ${narrados.length}.`);
+  }
+  narrados.forEach((b, i) => {
+    if (b.texto !== insta[i]) cambios.push(b.id);
+    b.texto = insta[i];
+  });
   if (cambios.length) writeFileSync(escenasPath, JSON.stringify(data, null, 2) + '\n');
   return { data, cambios };
 }

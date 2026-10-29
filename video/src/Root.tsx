@@ -1,7 +1,8 @@
 import { Composition, Still } from 'remotion';
-import { AIRE_FRAMES, duracion, FPS, REEL, VIDEO, type Item } from './medios';
+import { AIRE_FRAMES, duracion, duracionBloque, FPS, INSTA, palabras, REEL, VIDEO, type Item } from './medios';
 import { Miniatura } from './Miniatura';
 import { Narrado } from './Narrado';
+import { ReelInsta } from './ReelInsta';
 
 // La duración de cada composición sale de las narraciones (calculateMetadata), escena por escena, más el aire entre
 // una escena y la siguiente.
@@ -9,6 +10,15 @@ const metadata = (items: Item[]) => async () => {
   const d = await Promise.all(items.map(duracion));
   const frames = d.map((x, i) => x.frames + (i < items.length - 1 ? AIRE_FRAMES : 0));
   return { durationInFrames: frames.reduce((a, b) => a + b, 0), props: { items, frames } };
+};
+
+// El Reel Insta: cada bloque dura lo que su voz (o sus cortes) y respira un poco antes del siguiente.
+const metadataInsta = async () => {
+  const { bloques } = INSTA;
+  const d = await Promise.all(bloques.map(duracionBloque));
+  const frames = d.map((x, i) => x + (bloques[i].texto && i < bloques.length - 1 ? Math.round(INSTA.aire_s * FPS) : 0));
+  const p = await Promise.all(bloques.map((b) => (b.texto ? palabras(b.id) : [])));
+  return { durationInFrames: frames.reduce((a, b) => a + b, 0), props: { bloques, frames, palabras: p } };
 };
 
 export const RemotionRoot: React.FC = () => (
@@ -32,6 +42,16 @@ export const RemotionRoot: React.FC = () => (
       durationInFrames={1}
       defaultProps={{ items: [REEL], frames: [] }}
       calculateMetadata={metadata([REEL])}
+    />
+    <Composition
+      id="ReelInsta"
+      component={ReelInsta}
+      width={1080}
+      height={1920}
+      fps={FPS}
+      durationInFrames={1}
+      defaultProps={{ bloques: INSTA.bloques, frames: [], palabras: [] }}
+      calculateMetadata={metadataInsta}
     />
     <Still id="Miniatura" component={Miniatura} width={1280} height={720} />
   </>

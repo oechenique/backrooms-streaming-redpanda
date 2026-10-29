@@ -22,7 +22,7 @@ if (faltanClips.length) {
   console.log(`Faltan ${faltanClips.length} clips en video/clips/ (se ven como placa de prueba en el Studio):`);
   for (const [id, desc] of faltanClips) console.log(`  ${id}.mp4  ${desc}`);
 }
-const ids = [...data.video.map((e) => e.id), data.reel.id];
+const ids = [...data.video.map((e) => e.id), data.reel.id, ...data.reel_insta.bloques.filter((b) => b.texto).map((b) => b.id)];
 const faltanAudios = ids.filter((id) => !existsSync(resolve(root, 'audio', `${id}.mp3`)));
 if (faltanAudios.length) console.log(`Faltan narraciones (npm run narrar): ${faltanAudios.join(', ')}`);
 

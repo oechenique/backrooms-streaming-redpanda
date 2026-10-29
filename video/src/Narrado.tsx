@@ -71,7 +71,7 @@ const Apagon: React.FC<{ frames: number }> = ({ frames }) => {
 };
 
 /** Solo para el Studio: marca dónde falta un clip. */
-const Placa: React.FC<{ texto: string }> = ({ texto }) => {
+export const Placa: React.FC<{ texto: string }> = ({ texto }) => {
   const { width } = useVideoConfig();
   return (
     <AbsoluteFill
