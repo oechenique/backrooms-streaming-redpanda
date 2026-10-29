@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["game", "world", "vite.config.ts"]
+  "include": ["game", "world", "dashboard", "vite.config.ts"]
 }

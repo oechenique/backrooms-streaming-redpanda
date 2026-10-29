@@ -16,5 +16,5 @@ export default defineConfig({
   build: { outDir: '../dist', emptyOutDir: true, target: 'es2020' },
   server: { host: true, proxy: collector },
   preview: { proxy: collector },
-  test: { root: '.', include: ['world/**/*.test.ts', 'game/**/*.test.ts'] },
+  test: { root: '.', include: ['world/**/*.test.ts', 'game/**/*.test.ts', 'dashboard/**/*.test.ts'] },
 });

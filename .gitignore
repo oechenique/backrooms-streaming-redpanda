@@ -1,6 +1,7 @@
 research/
 node_modules/
 dist/
+dist-dashboard/
 .env
 collector/.venv/
 __pycache__/
