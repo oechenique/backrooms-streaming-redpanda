@@ -1,8 +1,9 @@
 import { Composition, Still } from 'remotion';
-import { AIRE_FRAMES, duracion, duracionBloque, FPS, INSTA, palabras, REEL, VIDEO, type Item } from './medios';
+import { AIRE_FRAMES, duracion, duracionBloque, duracionSenpai, FPS, INSTA, palabras, REEL, SENPAI, tramosSenpai, VIDEO, type Item } from './medios';
 import { Miniatura } from './Miniatura';
 import { Narrado } from './Narrado';
 import { ReelInsta } from './ReelInsta';
+import { ReelSenpai } from './ReelSenpai';
 
 // La duración de cada composición sale de las narraciones (calculateMetadata), escena por escena, más el aire entre
 // una escena y la siguiente.
@@ -19,6 +20,14 @@ const metadataInsta = async () => {
   const frames = d.map((x, i) => x + (bloques[i].texto && i < bloques.length - 1 ? Math.round(INSTA.aire_s * FPS) : 0));
   const p = await Promise.all(bloques.map((b) => (b.texto ? palabras(b.id) : [])));
   return { durationInFrames: frames.reduce((a, b) => a + b, 0), props: { bloques, frames, palabras: p } };
+};
+
+// El Reel Senpai: cada bloque dura su tramo de la voz (o sus cortes), más el aire entre bloques narrados.
+const metadataSenpai = async () => {
+  const { bloques } = SENPAI;
+  const tramos = await tramosSenpai();
+  const frames = bloques.map((b, i) => duracionSenpai(b, tramos[b.id]) + (b.voz && i < bloques.length - 1 ? Math.round(SENPAI.aire_s * FPS) : 0));
+  return { durationInFrames: frames.reduce((a, b) => a + b, 0), props: { bloques, frames, tramos } };
 };
 
 export const RemotionRoot: React.FC = () => (
@@ -52,6 +61,16 @@ export const RemotionRoot: React.FC = () => (
       durationInFrames={1}
       defaultProps={{ bloques: INSTA.bloques, frames: [], palabras: [] }}
       calculateMetadata={metadataInsta}
+    />
+    <Composition
+      id="ReelSenpai"
+      component={ReelSenpai}
+      width={1080}
+      height={1920}
+      fps={FPS}
+      durationInFrames={1}
+      defaultProps={{ bloques: SENPAI.bloques, frames: [], tramos: {} }}
+      calculateMetadata={metadataSenpai}
     />
     <Still id="Miniatura" component={Miniatura} width={1280} height={720} />
   </>

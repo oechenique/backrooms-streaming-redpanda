@@ -315,5 +315,231 @@
       1879380340,
       1628017017
     ]
+  },
+  "reel_senpai": {
+    "link": "lost-in-the-pipeline.vercel.app",
+    "aire_s": 0,
+    "voz": {
+      "voice_id": "oq8K6jJPiW08295EbH2y",
+      "model_id": "eleven_multilingual_v2",
+      "ajustes": {
+        "stability": 0.85,
+        "similarity_boost": 0.75,
+        "style": 0.1,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      },
+      "pausas": {
+        "pausa": 0.6,
+        "pausa larga": 1.2
+      },
+      "entre_bloques_s": 1
+    },
+    "bloques": [
+      {
+        "id": "senpai-1-gancho",
+        "volumen": 1,
+        "cortes": [
+          {
+            "clip": "02-caceria",
+            "desde": 11.2,
+            "s": 1,
+            "encuadre": [
+              45,
+              50
+            ]
+          },
+          {
+            "clip": "03-captura",
+            "desde": 6.7,
+            "s": 1.5,
+            "recorte": [
+              607,
+              12,
+              1313,
+              878
+            ]
+          }
+        ]
+      },
+      {
+        "id": "senpai-2-pasillo",
+        "voz": "me perdí en los backrooms. [pausa] otra vez.",
+        "texto": "me perdí en los backrooms. otra vez.",
+        "cortes": [
+          {
+            "clip": "01-pasillo",
+            "desde": 0.5
+          }
+        ]
+      },
+      {
+        "id": "senpai-3-caceria",
+        "voz": "acá hay una criatura que no ve. te escucha. si corrés, te encuentra.",
+        "texto": "acá hay una criatura que no ve. te escucha. si corrés, te encuentra.",
+        "cortes": [
+          {
+            "clip": "02-caceria",
+            "desde": 3.3
+          },
+          {
+            "clip": "02-caceria",
+            "desde": 9.6,
+            "en_frase": 2,
+            "encuadre": [
+              45,
+              50
+            ]
+          }
+        ]
+      },
+      {
+        "id": "senpai-4-persecucion",
+        "voz": "corrí. [pausa larga] me encontró. [pausa] normal, che.",
+        "texto": "corrí. me encontró. normal, che.",
+        "cortes": [
+          {
+            "clip": "02-caceria",
+            "desde": 13,
+            "encuadre": [
+              45,
+              50
+            ]
+          },
+          {
+            "clip": "03-captura",
+            "desde": 7,
+            "en_frase": 1,
+            "recorte": [
+              607,
+              12,
+              1313,
+              878
+            ]
+          }
+        ]
+      },
+      {
+        "id": "senpai-5-pipeline",
+        "voz": "cada paso es un evento. va a redpanda, se guarda en parquet, pasa por duckdb y termina en un mapa de dónde se pierde la gente.",
+        "texto": "cada paso es un evento. va a redpanda, se guarda en parquet, pasa por duckdb y termina en un mapa de dónde se pierde la gente.",
+        "cortes": [
+          {
+            "visual": "pipeline"
+          },
+          {
+            "imagen": "mapa-dashboard.png",
+            "en_frase": 2,
+            "encuadre": [
+              36,
+              52
+            ],
+            "encuadre_fin": [
+              62,
+              54
+            ],
+            "zoom": 1.35,
+            "zoom_fin": 1.5
+          }
+        ]
+      },
+      {
+        "id": "senpai-6-datos",
+        "voz": "los datos dijeron que el juego era injusto. cien por ciento de capturas. [pausa] lo ajustamos, ¿viste? ahora se puede escapar. [pausa] a veces.",
+        "texto": "los datos dijeron que el juego era injusto. cien por ciento de capturas. lo ajustamos, ¿viste? ahora se puede escapar. a veces.",
+        "cortes": [
+          {
+            "clip": "11-mapa",
+            "desde": 17,
+            "velocidad": 0.35,
+            "recorte": [
+              35,
+              645,
+              395,
+              762
+            ],
+            "paneo": 8
+          }
+        ]
+      },
+      {
+        "id": "senpai-7-fantasma",
+        "voz": "ah, y una captura nunca llegó al páiplain. hasta los datos tienen fantasmas.",
+        "texto": "ah, y una captura nunca llegó al páiplain. hasta los datos tienen fantasmas.",
+        "cortes": [
+          {
+            "clip": "03-captura",
+            "desde": 7.2,
+            "velocidad": 0.5,
+            "glitch": true,
+            "recorte": [
+              607,
+              12,
+              1313,
+              878
+            ]
+          }
+        ]
+      },
+      {
+        "id": "senpai-8-noclip",
+        "voz": "encontré una pared rota. la atravesé. [pausa] nivel uno. estacionamiento infinito. zona segura. [pausa] el juego es gratis. link en la bio.",
+        "texto": "encontré una pared rota. la atravesé. nivel uno. estacionamiento infinito. zona segura. el juego es gratis. link en la bio.",
+        "cortes": [
+          {
+            "clip": "06-noclip",
+            "desde": 10.4
+          },
+          {
+            "clip": "07-estacionamiento",
+            "desde": 1,
+            "en_frase": 3
+          }
+        ]
+      },
+      {
+        "id": "senpai-9-cierre",
+        "voz": "Mata né.",
+        "texto": "Mata né.",
+        "apagar": true,
+        "link": true,
+        "cola_s": 1.7,
+        "cortes": [
+          {
+            "clip": "07-estacionamiento",
+            "desde": 7.2
+          }
+        ]
+      }
+    ],
+    "musica": [
+      {
+        "id": "dubstep",
+        "archivo": "senpai-dubstep",
+        "largo_s": 10,
+        "volumen": 0.2,
+        "desde": {
+          "bloque": "senpai-3-caceria"
+        },
+        "hasta": {
+          "bloque": "senpai-4-persecucion",
+          "corte": 1
+        },
+        "prompt": "Dark dubstep instrumental, 140 BPM, heavy wobble bass and tense build-up, horror chase energy, no vocals"
+      },
+      {
+        "id": "house",
+        "archivo": "senpai-house",
+        "largo_s": 20,
+        "volumen": 0.16,
+        "desde": {
+          "bloque": "senpai-5-pipeline"
+        },
+        "hasta": {
+          "bloque": "senpai-6-datos"
+        },
+        "prompt": "Chill deep house instrumental, 118 BPM, warm soft pads, mellow groove, relaxed and minimal, lo-fi warmth, no vocals"
+      }
+    ]
   }
 }

@@ -1,6 +1,6 @@
-// Deja video/public/ apuntando a clips/, audio/ y al Gold del consumer (data/gold, para los rastros), con junctions en
+// Deja video/public/ apuntando a clips/, audio/, music/ y al Gold del consumer (data/gold, para los rastros), con junctions en
 // Windows y symlinks en el resto, para que Remotion los sirva sin exponer el resto de video/ (por ejemplo el .env).
-// Avisa qué clips y audios faltan.
+// Avisa qué clips, audios y pistas de música faltan.
 
 import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const data = JSON.parse(readFileSync(resolve(root, 'src/escenas.json'), 'utf8'));
 
-for (const dir of ['clips', 'audio', 'out', 'public']) mkdirSync(resolve(root, dir), { recursive: true });
-const links = { clips: resolve(root, 'clips'), audio: resolve(root, 'audio'), gold: resolve(root, '../data/gold') };
+for (const dir of ['clips', 'audio', 'music', 'out', 'public']) mkdirSync(resolve(root, dir), { recursive: true });
+const links = { clips: resolve(root, 'clips'), audio: resolve(root, 'audio'), music: resolve(root, 'music'), gold: resolve(root, '../data/gold') };
 for (const [dir, target] of Object.entries(links)) {
   const link = resolve(root, 'public', dir);
   if (!existsSync(link) && !isLink(link) && existsSync(target)) symlinkSync(target, link, 'junction');
@@ -25,6 +25,9 @@ if (faltanClips.length) {
 const ids = [...data.video.map((e) => e.id), data.reel.id, ...data.reel_insta.bloques.filter((b) => b.texto).map((b) => b.id)];
 const faltanAudios = ids.filter((id) => !existsSync(resolve(root, 'audio', `${id}.mp3`)));
 if (faltanAudios.length) console.log(`Faltan narraciones (npm run narrar): ${faltanAudios.join(', ')}`);
+if (!existsSync(resolve(root, 'audio/senpai-bloques.json'))) console.log('Falta la voz del Reel Senpai (npm run narrar:senpai).');
+const faltanPistas = data.reel_senpai.musica.filter((m) => !existsSync(resolve(root, 'music', `${m.archivo}.mp3`)));
+if (faltanPistas.length) console.log(`Faltan pistas del Reel Senpai (npm run musica, o libres de derechos a mano): ${faltanPistas.map((m) => `music/${m.archivo}.mp3`).join(', ')}`);
 
 function isLink(p) {
   try {

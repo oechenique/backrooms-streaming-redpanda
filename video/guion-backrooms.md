@@ -81,6 +81,55 @@ audio aparte, para que los cortes acompañen a la voz; los textos van en el orde
 
 ---
 
+## Reel Senpai 9:16
+
+Variante del Reel Insta para la cuenta de Senpai (@dev.tenshi), una ingeniera de datos virtual: seca, deadpan, de
+pocas palabras, cansada pero cálida, rioplatense. Ritmo más calmo: tomas largas y pausas que dejan respirar los
+remates. Sin subtítulos: el único texto propio es la tarjeta final con el link. Ningún texto del juego queda cortado:
+las tomas con texto van con un recorte del cuadro horizontal que lo contiene entero, a todo el ancho y con el mismo
+clip desenfocado llenando el resto del alto. "TE ENCONTRÓ" y su línea ("La Interferencia te oyó…") ocupan ~90 % del
+ancho; de la tabla, solo las filas de captura por versión.
+
+Voz: ElevenLabs, Martina (`reel_senpai.voz` en `src/escenas.json`), estabilidad alta, estilo bajo, velocidad 0.95.
+Toda la narración sale de **un solo pedido** con los tiempos por letra (`npm run narrar:senpai`) y se corta por
+bloques con esos tiempos; los tramos no se pisan. `voz:` va escrito como se pronuncia, con `[pausa]` y
+`[pausa larga]` (se mandan como `<break>`). Suena una sola voz: los clips van sin su sonido, salvo el gancho (que no
+tiene voz).
+
+Música: se agrega en Instagram; el render sale sin música. Opcional: dubstep en la cacería y la persecución (bloques
+3 y 4) y house tranqui en el pipeline y los datos (5 y 6), siempre por debajo de la voz, solo original o libre de
+derechos, en `video/music/` (`npm run musica`).
+
+**1. Gancho (sin voz, 2,5 s):** el grito y "TE ENCONTRÓ" completo y legible, con el sonido del juego alto.
+
+**2. Pasillo tranquilo.**
+> voz: me perdí en los backrooms. [pausa] otra vez.
+
+**3. Titileo y comienzo de la cacería.**
+> voz: acá hay una criatura que no ve. te escucha. si corrés, te encuentra.
+
+**4. Persecución, corte seco a "TE ENCONTRÓ" completo.**
+> voz: corrí. [pausa larga] me encontró. [pausa] normal, che.
+
+**5. Pipeline animado vertical**, y en "pasa por duckdb…" el mapa de los perdidos tal como se ve en el navegador: una
+captura del dashboard real (`python scripts/capturar-mapa.py`, seed del día, la capa con más rastros, sin el panel),
+en vertical, con zoom y paneo lento sobre los rastros.
+> voz: cada paso es un evento. va a redpanda, se guarda en parquet, pasa por duckdb y termina en un mapa de dónde se pierde la gente.
+
+**6. Tabla de captura por versión:** zoom y paneo sobre las filas (0.4.0 100 % y 0.5.0 0 %), sin el resto del panel.
+> voz: los datos dijeron que el juego era injusto. cien por ciento de capturas. [pausa] lo ajustamos, ¿viste? ahora se puede escapar. [pausa] a veces.
+
+**7. Vuelta breve a "TE ENCONTRÓ" con glitch.**
+> voz: ah, y una captura nunca llegó al páiplain. hasta los datos tienen fantasmas.
+
+**8. Noclip y estacionamiento:** la pared rota, el cruce y el estacionamiento.
+> voz: encontré una pared rota. la atravesé. [pausa] nivel uno. estacionamiento infinito. zona segura. [pausa] el juego es gratis. link en la bio.
+
+**9. Fundido a negro** y tarjeta final en minúscula: lost-in-the-pipeline.vercel.app
+> voz: Mata né.
+
+---
+
 ## Clips
 Se cortan de las grabaciones crudas de `video/raw/` con `npm run cortar` (`scripts/cortar.mjs` documenta de dónde sale cada corte). Los visuales generados (laberinto, seeds, pipeline y rastros) están en `src/visuales/`.
 1. Pasillo del Nivel 0 con luces titilando (10 s)

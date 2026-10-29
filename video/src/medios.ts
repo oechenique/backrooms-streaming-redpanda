@@ -28,6 +28,22 @@ export interface ClipRef {
   zoom?: number;
   /** Reel Insta: el clip entero a lo ancho en vez de recortado al alto (para pantallas: Console, el mapa). */
   contener?: boolean;
+  /**
+   * Reel Senpai: solo este rectángulo del cuadro (x0, y0, x1, y1, en píxeles de la grabación), a todo el ancho y con el
+   * mismo clip desenfocado de fondo.
+   */
+  recorte?: [number, number, number, number];
+  /** Reel Senpai: paneo horizontal (px) a lo largo del corte, de un lado al otro. */
+  paneo?: number;
+  /** Reel Senpai: una imagen fija cuadrada de clips/ (la captura del dashboard), en vez de un clip. */
+  imagen?: string;
+  /** Reel Senpai, imagen: punto (x, y en %) en el que termina el paneo, y el zoom al final. */
+  encuadre_fin?: [number, number];
+  zoom_fin?: number;
+  /** Reel Senpai: el corte arranca con esa frase de la voz del bloque (0 = la primera). */
+  en_frase?: number;
+  /** Reel Senpai: interferencia sobre el clip. */
+  glitch?: boolean;
 }
 
 /** Un bloque del Reel Insta: dura lo que su narración (o la suma de sus cortes, si no tiene voz). */
@@ -69,15 +85,45 @@ export interface Item {
   apagar?: boolean;
 }
 
+/** Un bloque del Reel Senpai: `voz` es lo que se manda a ElevenLabs (como se pronuncia, con [pausa]); `texto`, lo mismo sin las pausas. */
+export interface BloqueSenpai extends Bloque {
+  voz?: string;
+  /** Al final, fundido a negro. */
+  apagar?: boolean;
+}
+
+/** Dónde entra o sale una pista: al principio (o al final) de un bloque, o en uno de sus cortes. */
+export interface Marca {
+  bloque: string;
+  corte?: number;
+}
+
+export interface Pista {
+  id: string;
+  archivo: string;
+  volumen: number;
+  desde: Marca;
+  hasta: Marca;
+}
+
+/** Tramo de audio/senpai.mp3 de cada bloque (s) y sus frases, relativas al tramo (scripts/narrar-senpai.mjs). */
+export interface TramoSenpai {
+  desde: number;
+  hasta: number;
+  frases: Palabra[];
+}
+
 export const VIDEO = data.video as Item[];
 export const REEL = data.reel as Item;
 export const INSTA = data.reel_insta as { link: string; aire_s: number; bloques: Bloque[] };
+export const SENPAI = data.reel_senpai as { link: string; aire_s: number; bloques: BloqueSenpai[]; musica: Pista[] };
 export const MINIATURA = data.miniatura;
 /** Mundo de los visuales generados: la seed del día de las grabaciones (las partidas 0.5.0). */
 export const VISUALES = data.visuales;
 
 export const clipPath = (clip: string) => `clips/${clip}.mp4`;
 export const audioPath = (id: string) => `audio/${id}.mp3`;
+export const musicPath = (archivo: string) => `music/${archivo}.mp3`;
 
 /** ¿Está el archivo en public/? (clips y narraciones se generan o graban aparte y no van a git). */
 export const existe = (path: string) => getStaticFiles().some((f) => f.name === path);
@@ -121,5 +167,20 @@ export async function palabras(id: string): Promise<Palabra[]> {
 export async function duracionBloque(b: Bloque): Promise<number> {
   const voz = b.texto ? (await duracion({ id: b.id, texto: b.texto, clips: [] })).frames / FPS : 0;
   const cortes = b.texto ? 0 : b.cortes.reduce((s, c) => s + (c.s ?? 1), 0);
+  return Math.ceil(Math.max(voz + (b.cola_s ?? 0), cortes, b.min_s ?? 0) * FPS);
+}
+
+/** Los tramos de la voz del Reel Senpai, por bloque (sin el json todavía, ninguno). */
+export async function tramosSenpai(): Promise<Record<string, TramoSenpai>> {
+  const path = 'audio/senpai-bloques.json';
+  if (!existe(path)) return {};
+  return (await fetch(staticFile(path))).json();
+}
+
+/** Frames de un bloque del Reel Senpai: su tramo de voz (o sus cortes), con su mínimo y su cola. */
+export function duracionSenpai(b: BloqueSenpai, tramo?: TramoSenpai): number {
+  // Sin la voz todavía, se estima por palabras (~2,5 por segundo).
+  const voz = tramo ? tramo.hasta - tramo.desde : b.voz ? b.texto!.split(/\s+/).length / 2.5 : 0;
+  const cortes = b.voz ? 0 : b.cortes.reduce((s, c) => s + (c.s ?? 1), 0);
   return Math.ceil(Math.max(voz + (b.cola_s ?? 0), cortes, b.min_s ?? 0) * FPS);
 }
