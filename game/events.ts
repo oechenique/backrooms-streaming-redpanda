@@ -6,7 +6,8 @@
 
 import { WORLD_V } from '../world';
 
-export const CLIENT_VERSION = '0.4.0';
+// 0.5.0: balance (la cacería arranca a 10 m o más, la entidad cazando va a 2,6 m/s).
+export const CLIENT_VERSION = '0.5.0';
 
 type Mood = 'calm' | 'stalk' | 'hunt' | 'retreat';
 

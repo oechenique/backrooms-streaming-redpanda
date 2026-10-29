@@ -23,6 +23,8 @@ const W = 2 * R + 1;
 const REPATH_S = 0.5;
 const CAPTURE_M = 0.8;
 const EXPOSED_M = 6;
+/** Una cacería no arranca más cerca que esto: el titileo de las luces tiene que avisar antes de que llegue. */
+export const HUNT_MIN_M = 10;
 /** Después de una puerta: segundos sin aparecer y celdas extra de distancia al volver. */
 const AWAY_MIN_S = 4;
 const AWAY_MAX_S = 7;
@@ -32,7 +34,7 @@ const AWAY_EXTRA = 8;
 const BEHAVIOR: Record<Mood, { speed: number; band: [number, number]; visible: number }> = {
   calm: { speed: 1.0, band: [9, 14], visible: 0 },
   stalk: { speed: 1.4, band: [4, 7], visible: 0.45 },
-  hunt: { speed: 2.9, band: [10, 14], visible: 1 }, // la banda solo se usa si tiene que reaparecer
+  hunt: { speed: 2.6, band: [10, 14], visible: 1 }, // la banda solo se usa si tiene que reaparecer
   retreat: { speed: 2.0, band: [20, 40], visible: 0 },
 };
 
@@ -100,6 +102,27 @@ export class Interferencia {
     return this.director.mood;
   }
 
+  /**
+   * La cacería arrancó demasiado cerca: salta por la señal a la celda más cercana por camino que quede a HUNT_MIN_M
+   * o más en línea recta. Así la persecución empieza con distancia y no encima del jugador.
+   */
+  private backOff(px: number, pz: number): void {
+    this.bfs(Math.floor(px / CELL), Math.floor(pz / CELL));
+    let best = -1;
+    for (let i = 0; i < this.field.length; i++) {
+      const d = this.field[i];
+      if (d < 0 || (best >= 0 && d >= this.field[best])) continue;
+      const x = (this.minX + (i % W) + 0.5) * CELL;
+      const z = (this.minY + Math.floor(i / W) + 0.5) * CELL;
+      if (Math.hypot(x - px, z - pz) >= HUNT_MIN_M) best = i;
+    }
+    if (best < 0) return this.phase(px, pz);
+    this.x = (this.minX + (best % W) + 0.5) * CELL;
+    this.z = (this.minY + Math.floor(best / W) + 0.5) * CELL;
+    this.next = null;
+    this.repath = 0;
+  }
+
   /** Reaparece en la banda de su humor, corrida `extra` celdas más lejos (al empezar o si quedó encerrada). */
   phase(px: number, pz: number, extra = 0): void {
     const prx = Math.floor(px / CELL);
@@ -141,11 +164,16 @@ export class Interferencia {
       const mood = this.mood;
       return { from, mood, detected: false, captured: false, present: this.awayS <= 0, distM: Infinity, walls: 2 };
     }
-    const distM = Math.hypot(this.x - player.x, this.z - player.z);
-    const walls = wallsBetween(this.level, this, player);
+    let distM = Math.hypot(this.x - player.x, this.z - player.z);
+    let walls = wallsBetween(this.level, this, player);
     const noise = heardLoudness(this.level, player, this, player.speed);
     tickDirector(this.director, { distM, noise, exposed: distM < EXPOSED_M && walls === 0, dtS: dt }, this.rng);
     const mood = this.mood;
+    if (mood === 'hunt' && from !== 'hunt' && distM < HUNT_MIN_M) {
+      this.backOff(player.x, player.z);
+      distM = Math.hypot(this.x - player.x, this.z - player.z);
+      walls = wallsBetween(this.level, this, player);
+    }
 
     const prx = Math.floor(player.x / CELL);
     const pry = Math.floor(player.z / CELL);

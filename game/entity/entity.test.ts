@@ -115,3 +115,24 @@ describe('La Interferencia después de una puerta', () => {
     expect(Math.hypot(entity.x - player.x, entity.z - player.z)).toBeGreaterThan(3 * CELL);
   });
 });
+
+describe('La Interferencia al empezar a cazar', () => {
+  it('si la cacería arranca a menos de 10 m, se corre a 10 m o más y no atrapa', async () => {
+    const { getStart, World } = await import('../../world');
+    const { Level } = await import('../level');
+    const { Interferencia, HUNT_MIN_M } = await import('./interferencia');
+    const start = getStart(7);
+    const level = new Level(new World(7), start.gx, start.gy, start.z);
+    const player = { x: (start.gx - level.originGx + 0.5) * CELL, z: (start.gy - level.originGy + 0.5) * CELL, speed: RUN };
+    const entity = new Interferencia(level);
+    entity.director.mood = 'stalk';
+    entity.director.suspicion = 100; // el próximo tick pasa a cazar
+    entity.x = player.x + 0.5; // casi encima
+    entity.z = player.z;
+    const t = entity.update(0.016, player);
+    expect(t.from).toBe('stalk');
+    expect(t.mood).toBe('hunt');
+    expect(t.captured).toBe(false);
+    expect(t.distM).toBeGreaterThanOrEqual(HUNT_MIN_M);
+  });
+});
