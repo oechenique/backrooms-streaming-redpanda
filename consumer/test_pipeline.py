@@ -168,7 +168,9 @@ def test_gold_mapa_y_resumen(db, tmp_path, partidas):
     tipos = sorted((mk["tipo"], mk["detalle"]) for mk in capas[(0, 1)]["marcas"])
     assert tipos == [("escape", "noclip"), ("noclip", "al nivel 1")]
     assert {(mk["tipo"], mk["detalle"]) for mk in capas[(0, 0)]["marcas"]} == {("escape", "retirada"), ("captura", "hunt")}
-    assert all((tmp_path / "gold" / f"{t}.parquet").exists() for t in ("rastros", "marcas", "resumen"))
+    assert all((tmp_path / "gold" / f"{t}.parquet").exists() for t in ("rastros", "marcas", "resumen", "versiones"))
+    [v] = index["versiones"]
+    assert (v["client_version"], v["sesiones"], v["persecuciones"], v["capturas"], v["pct_captura"]) == ("0.4.0", 4, 5, 1, 25.0)
     assert not list((tmp_path / "gold").glob("**/*.tmp"))
 
 

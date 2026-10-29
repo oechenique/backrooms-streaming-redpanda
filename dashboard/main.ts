@@ -163,6 +163,42 @@ function fillLegend(): void {
   $('table').querySelector('tbody')!.replaceChildren(...rows);
 }
 
+// % de captura por versión del cliente: una fila por versión, con una barra (escala fija 0–100 %) para comparar.
+function fillVersions(): void {
+  const vs = state.index?.versiones ?? [];
+  const rows = vs.map((v) => {
+    const tr = document.createElement('tr');
+    const pct = v.pct_captura;
+    const cells = [
+      v.client_version,
+      String(v.persecuciones),
+      null,
+      v.distancia_inicial_media_m == null ? '—' : `${v.distancia_inicial_media_m} m`,
+    ];
+    for (const c of cells) {
+      const td = document.createElement('td');
+      if (c === null) {
+        const wrap = document.createElement('div');
+        wrap.className = 'pct';
+        const bar = document.createElement('span');
+        bar.className = 'bar';
+        bar.style.width = `${Math.round((pct ?? 0) * 0.5)}px`;
+        wrap.append(bar, pct == null ? '—' : `${Math.round(pct)}%`);
+        td.append(wrap);
+      } else td.textContent = c;
+      tr.append(td);
+    }
+    tr.title = `${v.capturas} capturas · ${v.escapes} escapes · ${v.perdidas} rastros perdidos · ${v.en_curso} en curso · ${v.sesiones} sesiones`;
+    return tr;
+  });
+  if (rows.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="4">Sin datos todavía.</td>';
+    rows.push(tr);
+  }
+  $('versions').querySelector('tbody')!.replaceChildren(...rows);
+}
+
 function fillWarn(): void {
   const msgs: string[] = [];
   if (state.worldV !== WORLD_V)
@@ -188,6 +224,7 @@ async function loadWorld(): Promise<void> {
   state.mapa = mundo() ? await loadMapa(state.seed, state.worldV) : null;
   fillSeeds();
   fillStats();
+  fillVersions();
   fillWarn();
   changeLayer();
 }

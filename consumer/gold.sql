@@ -38,6 +38,35 @@ SELECT seed, world_v, level, z, x, y, ts, session,
 FROM eventos
 WHERE type IN ('captura', 'escape', 'noclip');
 
+-- Captura por versión del cliente (todas las seeds): para comparar el balance antes y después de cada cambio.
+CREATE TEMP TABLE gold_versiones AS
+WITH s AS (
+    SELECT client_version, count(*) AS sesiones, round(avg(duracion_s), 1) AS duracion_media_s FROM sesiones GROUP BY ALL
+),
+p AS (
+    SELECT client_version,
+           count(*) AS persecuciones,
+           count(*) FILTER (WHERE resultado = 'captura') AS capturas,
+           count(*) FILTER (WHERE resultado = 'escape') AS escapes,
+           count(*) FILTER (WHERE resultado = 'perdida') AS perdidas,
+           count(*) FILTER (WHERE resultado = 'en_curso') AS en_curso,
+           round(avg(distancia_inicial_m), 1) AS distancia_inicial_media_m,
+           round(avg(duracion_s) FILTER (WHERE resultado <> 'en_curso'), 1) AS duracion_media_persecucion_s
+    FROM persecuciones
+    GROUP BY ALL
+)
+SELECT s.client_version, s.sesiones, s.duracion_media_s,
+       coalesce(p.persecuciones, 0) AS persecuciones,
+       coalesce(p.capturas, 0) AS capturas,
+       coalesce(p.escapes, 0) AS escapes,
+       coalesce(p.perdidas, 0) AS perdidas,
+       coalesce(p.en_curso, 0) AS en_curso,
+       round(100.0 * p.capturas / nullif(p.capturas + p.escapes + p.perdidas, 0), 1) AS pct_captura,
+       p.distancia_inicial_media_m,
+       p.duracion_media_persecucion_s
+FROM s
+LEFT JOIN p USING (client_version);
+
 -- Resumen por mundo (seed + versión del generador). El % de captura es sobre las persecuciones terminadas.
 CREATE TEMP TABLE gold_resumen AS
 WITH p AS (

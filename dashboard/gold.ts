@@ -18,9 +18,26 @@ export interface Resumen {
   capas: { level: number; z: number; celdas: number; marcas: number }[];
 }
 
+/** Captura por versión del cliente, sobre todas las seeds (para comparar el balance entre versiones). */
+export interface Version {
+  client_version: string;
+  sesiones: number;
+  duracion_media_s: number | null;
+  persecuciones: number;
+  capturas: number;
+  escapes: number;
+  perdidas: number;
+  en_curso: number;
+  pct_captura: number | null;
+  distancia_inicial_media_m: number | null;
+  duracion_media_persecucion_s: number | null;
+}
+
 export interface Index {
   generado: string;
   mundos: Resumen[];
+  /** Ordenadas de la más vieja a la más nueva. */
+  versiones?: Version[];
 }
 
 export type Tipo = 'captura' | 'escape' | 'noclip';

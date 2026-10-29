@@ -185,6 +185,36 @@ button:focus-visible {
   color: var(--warn);
 }
 
+.versions {
+  margin-top: 14px;
+}
+.versions h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.versions h2 span {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.versions td {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.versions .pct {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.versions .bar {
+  height: 6px;
+  border-radius: 0 3px 3px 0;
+  background: #e0574a;
+}
+
 details {
   margin-top: 12px;
   color: var(--ink-2);

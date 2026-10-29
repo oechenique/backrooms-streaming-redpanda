@@ -35,7 +35,7 @@ QUALIFY row_number() OVER (PARTITION BY v->>'event_id' ORDER BY particion, "offs
 -- persecución o el fin de la sesión; si la sesión sigue abierta queda en_curso, hasta el último evento recibido.
 CREATE TABLE persecuciones AS
 WITH inicios AS (
-    SELECT data->>'persecucion_id' AS persecucion_id, session, seed, world_v, level, ts AS inicio, x, y, z,
+    SELECT data->>'persecucion_id' AS persecucion_id, session, seed, world_v, client_version, level, ts AS inicio, x, y, z,
            (data->>'distancia_m')::DOUBLE AS distancia_inicial_m
     FROM eventos
     WHERE type = 'persecucion_inicio'
@@ -59,7 +59,7 @@ cortes AS (
     GROUP BY i.persecucion_id
 )
 SELECT
-    i.persecucion_id, i.session, i.seed, i.world_v, i.level,
+    i.persecucion_id, i.session, i.seed, i.world_v, i.client_version, i.level,
     i.inicio,
     coalesce(c.ts, k.fin, i.inicio) AS fin,
     coalesce(c.duracion_s, epoch(coalesce(k.fin, i.inicio) - i.inicio)) AS duracion_s,

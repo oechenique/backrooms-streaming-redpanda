@@ -1,8 +1,9 @@
 """Gold liviano: lo que necesita el mapa de los perdidos, exportado desde la base Silver recién armada.
 
-    gold/index.json                   mundos (seed + world_v) con su resumen y las capas con rastros
+    gold/index.json                   mundos (seed + world_v) con su resumen y las capas con rastros, y la captura
+                                      por versión del cliente
     gold/mapa/<seed>-v<world_v>.json  por capa: rastros [cx, cy, peso] y marcas (captura, escape, noclip)
-    gold/rastros.parquet, marcas.parquet, resumen.parquet   lo mismo para análisis
+    gold/rastros.parquet, marcas.parquet, resumen.parquet, versiones.parquet   lo mismo para análisis
 
 Cada archivo se escribe como .tmp y se renombra; el índice va último, así nunca apunta a un mapa que no existe.
 """
@@ -44,7 +45,7 @@ def export(con: duckdb.DuckDBPyConnection, gold: Path) -> int:
     con.execute(SQL.read_text(encoding="utf-8"))
     (gold / "mapa").mkdir(parents=True, exist_ok=True)
 
-    for t in ("rastros", "marcas", "resumen"):
+    for t in ("rastros", "marcas", "resumen", "versiones"):
         _replace(gold / f"{t}.parquet", lambda tmp, t=t: con.execute(f"COPY gold_{t} TO '{tmp.as_posix()}' (FORMAT parquet)"))
 
     # Las fechas salen como texto ISO en UTC (pasar TIMESTAMPTZ a Python pediría pytz).
@@ -75,7 +76,8 @@ def export(con: duckdb.DuckDBPyConnection, gold: Path) -> int:
         vigentes.add(nombre)
         _json(gold / "mapa" / nombre, {"seed": m["seed"], "world_v": m["world_v"], "capas": list(capas.values())})
 
-    _json(gold / "index.json", {"generado": datetime.now(timezone.utc).isoformat(timespec="seconds"), "mundos": mundos})
+    versiones = _dicts(con, "SELECT * FROM gold_versiones ORDER BY string_split(client_version, '.')::INTEGER[]")
+    _json(gold / "index.json", {"generado": datetime.now(timezone.utc).isoformat(timespec="seconds"), "mundos": mundos, "versiones": versiones})
     for viejo in (gold / "mapa").glob("*.json"):
         if viejo.name not in vigentes:
             viejo.unlink()
