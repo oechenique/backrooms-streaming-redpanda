@@ -136,7 +136,7 @@ después de cada cambio; `consulta.py` muestra la misma tabla. `client.version` 
   de 256×256 celdas).
 - **Las sesiones `debug` no aparecen** (se filtran en Silver), y las horas están en UTC.
 - **Solo local.** Lo sirve el servidor de Vite (`npm run dash` o `vite preview`) desde `data/gold`; el hosting llega en
-  F6. El diseño para celu se probó achicando la ventana, no en un teléfono.
+  F6. El diseño para celu (panel abajo, pellizco para el zoom) está hecho pero todavía no se probó en un teléfono.
 
 ### Cómo viajan los eventos
 ```
