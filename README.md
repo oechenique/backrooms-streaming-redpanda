@@ -34,7 +34,7 @@ El mundo no se guarda: es una función de `seed` y coordenadas. Con los eventos 
   - [x] F1c Noclip al Nivel 1 (Habitable Zone) con el mismo `world/` y otros parámetros
   - [x] F1d Noclip más frecuente y visible, llegada segura, cuerpo y grito nuevos de La Interferencia
 - [x] F2 Contrato + collector + Redpanda
-- [ ] F3 Procesamiento (Bronze / Silver)
+- [x] F3 Procesamiento (Bronze / Silver)
 - [ ] F4 Gold con dbt
 - [ ] F5 El mapa de los perdidos
 - [ ] F6 Mobile y deploy
@@ -43,7 +43,7 @@ El mundo no se guarda: es una función de `seed` y coordenadas. Con los eventos 
 Requiere Node 20 o más nuevo y Docker (Docker Desktop en Windows/Mac).
 
 ```bash
-docker compose up --build -d   # Redpanda + Console + collector (primera vez: baja imágenes y construye)
+docker compose up --build -d   # Redpanda + Console + collector + consumer (primera vez: baja imágenes y construye)
 npm install
 npm run dev                    # juego en http://localhost:5173 (también en la red local, para el celu)
 ```
@@ -61,7 +61,7 @@ npm run build      # typecheck + build estático en dist/
 docker compose down            # apaga todo (los eventos quedan en el volumen; `down -v` los borra)
 ```
 
-Tests del collector (Python 3.12):
+Tests del collector y del consumer (Python 3.12; lo mismo en `consumer/`):
 ```bash
 cd collector
 py -3.12 -m venv .venv          # en Linux/Mac: python3.12 -m venv .venv
@@ -70,6 +70,34 @@ py -3.12 -m venv .venv          # en Linux/Mac: python3.12 -m venv .venv
 ```
 
 Puertos y tópicos se cambian copiando `.env.example` a `.env`.
+
+### Bronze y Silver (F3)
+El servicio `consumer` lee `backrooms.eventos` y `backrooms.eventos.dlq` y deja todo en `./data`:
+```
+data/bronze/eventos/fecha=AAAA-MM-DD/nivel=N/p<partición>-<offset inicial>-<offset final>.parquet   (fecha UTC del evento)
+data/bronze/dlq/fecha=AAAA-MM-DD/…parquet                                                            (fecha de recepción)
+data/silver/backrooms.duckdb
+```
+- **Bronze** es crudo: el JSON tal cual llegó (`valor`) más tópico, partición, offset, key y los headers `recibido` y
+  `contrato`. Lee en lotes (hasta 1000 mensajes o 5 s), escribe y **recién después hace commit de los offsets**. Si
+  se cae en el medio, relee el lote y pisa los mismos archivos.
+- **Silver** se reconstruye entero desde Bronze (como mucho cada 10 s si hay datos nuevos) con
+  [`consumer/silver.sql`](consumer/silver.sql). Las partidas con `client.debug` quedan en Bronze pero no pasan a Silver.
+
+| Tabla | Qué tiene |
+|---|---|
+| `eventos` | eventos únicos por `event_id` (gana la primera copia en Kafka), con columnas tipadas y `data` como JSON |
+| `sesiones` | inicio, fin, `duracion_s`, `distancia_m` (tramos dentro del mismo nivel y capa; celda = 2.2 m), `niveles_visitados`, `como_termino` (`captura`, `salida` o `sin_cierre` si no llegó `sesion_fin`), conteos de persecuciones por resultado y noclips |
+| `persecuciones` | inicio, fin, `duracion_s`, `resultado` (`escape` con su `via`, `captura` o `perdida` = pérdida de rastro: sin cierre, termina en la próxima persecución o el fin de la sesión), distancia inicial, celdas de inicio y fin |
+| `noclips` | origen, destino, celda y, si fue un escape, el `persecucion_id` |
+
+Consultas (en el contenedor, en solo lectura):
+```bash
+docker compose exec consumer python consulta.py                        # sesiones y persecuciones
+docker compose exec consumer python consulta.py "SELECT * FROM noclips"
+```
+Cambiar `CONSUMER_GROUP` en `.env` (o, con el consumer parado, borrar `./data` y el grupo con
+`docker compose exec redpanda rpk group delete backrooms-consumer`) relee los tópicos desde el principio.
 
 ### Cómo viajan los eventos
 ```
@@ -80,7 +108,7 @@ juego ──(cada 2 s, lote JSON; sendBeacon al cerrar)──► /api/events (pr
 ```
 - Si el collector o Redpanda no responden, el juego sigue: los eventos quedan en una cola (también en localStorage) y
   se reintentan con espera creciente (2 s … 30 s). Con `?debug=1` el HUD muestra el tamaño de la cola.
-- Entrega **at-least-once**: un evento puede llegar dos veces; se deduplica por `event_id` en F3.
+- Entrega **at-least-once**: un evento puede llegar dos veces; se deduplica por `event_id` en Silver.
 - Privacidad: el collector corre sin access log y el proxy no agrega la IP.
 
 - **Seed**: `?seed=123` en la URL (entero de 0 a 4294967295). Sin seed se sortea una y queda escrita en la URL:
@@ -102,7 +130,9 @@ game/    render Three.js por bloques de 16×16 celdas, input, colisión, textura
   shifter.ts                 bloques fuera de vista que toman su interior de otra capa (bordes fijos)
   entity/                    La Interferencia: oído y director (de liminal, MIT) + movimiento y silueta propios
   audio.ts                   zumbido, pasos, respiración y estática, todo sintetizado con WebAudio
-  events.ts                  eventos con el contrato borrador
+  events.ts                  eventos con el contrato v1
+collector/   FastAPI: valida contra contracts/ y publica en Redpanda
+consumer/    Redpanda → Bronze (Parquet) → Silver (DuckDB)
 ```
 
 ### Cómo se juega
