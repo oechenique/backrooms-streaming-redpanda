@@ -6,7 +6,7 @@ import { Interferencia, type Tick } from './entity/interferencia';
 import { Signal, threatOf } from './entity/signal';
 import { safeLanding } from './landing';
 import { Events, uuid } from './events';
-import { browserOutboxDeps, Outbox } from './outbox';
+import { browserOutboxDeps, collectorUrl, Outbox } from './outbox';
 import { Input } from './input';
 import { CELL, CHUNK, Level } from './level';
 import { Player, type Crossing } from './player';
@@ -39,11 +39,13 @@ const loader = new ZoneLoader(world);
 const startLevel = debug && new URL(location.href).searchParams.get('nivel') === '1' ? 1 : 0;
 const level = new Level(world, start.gx, start.gy, start.z, startLevel);
 const player = new Player(level, (start.gx - level.originGx + 0.5) * CELL, (start.gy - level.originGy + 0.5) * CELL);
-// Los eventos van a una cola que los manda al collector cada 2 s (proxy de Vite /api → collector). Si el collector
-// no responde, la cola espera y reintenta; el juego sigue igual. Ver outbox.ts.
-const outbox = new Outbox(browserOutboxDeps());
-const events = new Events(seed, touch ? 'touch' : 'desktop', debug, (e) => outbox.push(e));
-setInterval(() => void outbox.flush(), 2000);
+// Los eventos van a una cola que los manda al collector cada 2 s. Si el collector no responde, la cola espera y
+// reintenta; el juego sigue igual. Ver outbox.ts. En un build sin VITE_COLLECTOR_URL (el deploy público, por ahora)
+// la telemetría queda apagada: los eventos no salen del navegador.
+const collector = collectorUrl(import.meta.env.VITE_COLLECTOR_URL, import.meta.env.DEV);
+const outbox = collector ? new Outbox(browserOutboxDeps(collector)) : null;
+const events = new Events(seed, touch ? 'touch' : 'desktop', debug, (e) => outbox?.push(e));
+if (outbox) setInterval(() => void outbox.flush(), 2000);
 events.level = startLevel;
 const sound = new Sound();
 player.onStep = (speed) => sound.step(speed);
@@ -194,10 +196,10 @@ document.addEventListener('pointerlockchange', () => {
 // pase antes de que el sistema mate la pestaña), solo se manda lo pendiente.
 addEventListener('pagehide', () => {
   endSession('salida');
-  outbox.flushOnExit();
+  outbox?.flushOnExit();
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') outbox.flushOnExit();
+  if (document.visibilityState === 'hidden') outbox?.flushOnExit();
 });
 
 function crossDoor(dz: 1 | -1): void {
@@ -367,7 +369,9 @@ function updateHud(): void {
     const d = entity.director;
     text +=
       `\n${frameMs.toFixed(1)} ms/frame · ${renderer.info.render.calls} draws` +
-      `\ncola ${outbox.size}${outbox.waitMs ? ` · collector sin respuesta, reintento en ${Math.ceil(outbox.waitMs / 1000)} s` : ''}` +
+      (outbox
+        ? `\ncola ${outbox.size}${outbox.waitMs ? ` · collector sin respuesta, reintento en ${Math.ceil(outbox.waitMs / 1000)} s` : ''}`
+        : '\ntelemetría apagada') +
       (theme.entity
         ? `\n${d.mood} · amenaza ${d.menace.toFixed(0)} · sospecha ${d.suspicion.toFixed(1)}` +
           `\nentidad a ${Math.hypot(entity.x - player.x, entity.z - player.z).toFixed(1)} m`

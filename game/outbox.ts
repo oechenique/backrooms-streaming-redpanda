@@ -1,6 +1,6 @@
 // Cola de salida de eventos hacia el collector.
 //
-// - Cada 2 s (el que llama decide el ritmo) manda un lote por POST a /api/events (proxy de Vite → collector).
+// - Cada 2 s (el que llama decide el ritmo) manda un lote por POST al collector (ver collectorUrl).
 // - Si el collector no responde o da error, el lote queda en la cola y se reintenta con espera creciente
 //   (2, 4, 8… hasta 30 s). El juego no se entera: sigue andando.
 // - La cola se guarda en localStorage: si cerrás con el collector caído, se manda en la próxima partida.
@@ -134,8 +134,17 @@ function chunks(queue: GameEvent[]): GameEvent[][] {
   return out;
 }
 
+/**
+ * Adónde mandar los eventos: VITE_COLLECTOR_URL (la base del collector, sin /events) si está definida; si no, en
+ * desarrollo el proxy de Vite (/api → collector). En un build sin VITE_COLLECTOR_URL devuelve null: telemetría apagada.
+ */
+export function collectorUrl(base: string | undefined, dev: boolean): string | null {
+  const b = base?.trim() || (dev ? '/api' : '');
+  return b ? `${b.replace(/\/+$/, '')}/events` : null;
+}
+
 /** Dependencias reales del navegador. */
-export function browserOutboxDeps(url = '/api/events'): OutboxDeps {
+export function browserOutboxDeps(url: string): OutboxDeps {
   let storage: Storage | null = null;
   try {
     storage = window.localStorage;

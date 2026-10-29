@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 // El juego manda los eventos a /api/events; Vite los pasa al collector (docker compose) sin CORS.
@@ -13,6 +14,8 @@ const collector = {
 
 export default defineConfig({
   root: 'game',
+  // .env en la raíz del repo (con root: 'game', Vite lo buscaría en game/). Ahí va VITE_COLLECTOR_URL.
+  envDir: fileURLToPath(new URL('.', import.meta.url)),
   build: { outDir: '../dist', emptyOutDir: true, target: 'es2020' },
   server: { host: true, proxy: collector },
   preview: { proxy: collector },

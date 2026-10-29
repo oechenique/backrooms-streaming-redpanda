@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameEvent } from './events';
-import { Outbox, type OutboxDeps } from './outbox';
+import { collectorUrl, Outbox, type OutboxDeps } from './outbox';
 
 function event(i: number, pad = 0): GameEvent {
   return { event_id: `e${i}`, data: { relleno: 'x'.repeat(pad) } } as unknown as GameEvent;
@@ -123,5 +123,19 @@ describe('cola de eventos', () => {
     outbox.flushOnExit();
     expect(state.beacons).toHaveLength(1);
     expect(JSON.parse(storage.get('backrooms.outbox')!)).toEqual([event(1)]);
+  });
+});
+
+describe('adónde van los eventos', () => {
+  it('en desarrollo, sin VITE_COLLECTOR_URL, al proxy de Vite', () => {
+    expect(collectorUrl(undefined, true)).toBe('/api/events');
+  });
+  it('en un build sin VITE_COLLECTOR_URL, telemetría apagada', () => {
+    expect(collectorUrl(undefined, false)).toBeNull();
+    expect(collectorUrl('  ', false)).toBeNull();
+  });
+  it('con VITE_COLLECTOR_URL, a ese collector (con o sin barra final)', () => {
+    expect(collectorUrl('https://ingesta.ejemplo.com/', false)).toBe('https://ingesta.ejemplo.com/events');
+    expect(collectorUrl('/api', false)).toBe('/api/events');
   });
 });
