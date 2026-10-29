@@ -112,6 +112,32 @@ media de la sesión. Se arrastra, se hace zoom con la rueda o pellizcando, y la 
 la capa tal como la genera el mundo: los bloques que cambian durante la partida (`laberinto_cambio`) no se reflejan.
 Lee solo `/gold/*.json`: el servidor de Vite no expone Bronze ni Silver.
 
+Debajo de los contadores, el **% de captura por versión del cliente** (todas las seeds) compara el balance antes y
+después de cada cambio; `consulta.py` muestra la misma tabla. `client.version` sube con cada cambio de balance.
+
+#### Limitaciones conocidas del mapa
+- **El laberinto es el generado, no el jugado.** Los bloques que cambian durante la partida (`laberinto_cambio`) no
+  se reflejan, así que un rastro puede cruzar una pared que en ese momento no estaba.
+- **Los rastros se interpolan.** Entre un evento y el siguiente pasan unos 2 s (`posicion`), y el tramo se rellena en
+  línea recta: en las esquinas corta camino y atraviesa paredes. Los saltos de 30 celdas o más (puertas, noclip, una
+  pestaña dormida) no se unen.
+- **Solo el generador actual.** Si los datos son de otro `world_v`, el laberinto no se reconstruye: se ven los rastros
+  y las marcas sobre el fondo vacío, con un aviso.
+- **No se actualiza solo.** El consumer rehace el Gold cada 10 s como mucho, pero el mapa lo lee una vez: hay que
+  recargar la página para ver partidas nuevas.
+- **Contadores por seed, no por capa.** Sesiones, persecuciones, % de captura y duración media son de toda la seed
+  (todos los niveles y capas). La tabla por versión suma todas las seeds. El % de captura es sobre las persecuciones
+  terminadas: las `en_curso` no cuentan, y las capturas sin persecución abierta aparecen en el mapa pero no en el %.
+- **El escape por noclip se marca en el nivel de origen**, en la pared por la que se fue; en el nivel de llegada no
+  queda marca.
+- **Detalle según el zoom.** Lejos (más de 450.000 celdas en pantalla) no se dibujan las paredes; las de noclip
+  aparecen desde 8 px por celda y los pilares del Nivel 1 desde 5 px.
+- **Las zonas se generan en el hilo principal.** Al moverse a zonas nuevas puede trabarse un instante (cada zona es
+  de 256×256 celdas).
+- **Las sesiones `debug` no aparecen** (se filtran en Silver), y las horas están en UTC.
+- **Solo local.** Lo sirve el servidor de Vite (`npm run dash` o `vite preview`) desde `data/gold`; el hosting llega en
+  F6. El diseño para celu se probó achicando la ventana, no en un teléfono.
+
 ### Cómo viajan los eventos
 ```
 juego ──(cada 2 s, lote JSON; sendBeacon al cerrar)──► /api/events (proxy de Vite, sin X-Forwarded-For)
@@ -157,7 +183,9 @@ dashboard/   el mapa de los perdidos: world/ en canvas 2D + Gold
   aplicar el cambio se verifica que no te deje encerrado.
 - **La Interferencia** no te ve: te oye. Caminar se oye de cerca, correr desde lejos y caminar en silencio no se oye.
   Las paredes atenúan el ruido. Cuando acecha, las luces titilan; si te caza, corré o escondete en silencio.
-  Una cacería dura hasta 30 s; si no te atrapa, se retira.
+  Una cacería dura hasta 30 s; si no te atrapa, se retira. Nunca arranca a menos de 10 m: si te descubre más cerca,
+  la señal la corre hacia atrás, así el titileo de las luces avisa antes de que llegue. Cazando va a 2,6 m/s;
+  corriendo vas a 3,4 m/s (desde el cliente 0.5.0; antes arrancaba a cualquier distancia y cazaba a 2,9 m/s).
   Es un humanoide estirado y flaco, de brazos que le pasan las rodillas y cabeza sin rasgos, hecho de carne podrida y
   estática. Cuando te caza, **grita**: un alarido sintético en tritono con quiebres de voz, gruñido, feedback de
   radio y zumbido eléctrico. Una sola variable de proximidad maneja el grito y el cuerpo: al acercarse, el grito se
