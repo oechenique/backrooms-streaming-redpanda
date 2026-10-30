@@ -1,7 +1,8 @@
 # Video del proyecto (Remotion)
 
 El video de YouTube (16:9, ~3 min), el reel (9:16), el Reel Insta (9:16, ~45 s, cortes rápidos y subtítulos), el
-Reel Senpai (9:16, ~50 s, la variante calma para @dev.tenshi, con la voz de Senpai y sin subtítulos) y la miniatura,
+Reel Senpai (9:16, ~49 s, la variante calma para @dev.tenshi, con la voz de Senpai, música de fondo y sin subtítulos) y
+la miniatura,
 armados con [Remotion](https://www.remotion.dev/).
 Solo se versiona el código y el guion: las grabaciones, los clips, la narración y los renders quedan afuera de git.
 
@@ -23,14 +24,11 @@ npm install
 cp .env.example .env    # ELEVENLABS_API_KEY=... (no se commitea)
 npm run cortar          # clips/ desde raw/ (scripts/cortar.mjs dice de dónde sale cada corte) y la miniatura
 npm run narrar          # una narración por escena; solo rehace las que cambiaron en el guion
-npm run narrar:senpai   # la voz del Reel Senpai: un solo pedido con tiempos, cortado por bloques
-npm run musica          # opcional: pistas de fondo del Reel Senpai con ElevenLabs Music
+npm run narrar:senpai   # la voz del Reel Senpai: una sola toma continua, con los tiempos de cada frase
 python scripts/capturar-mapa.py   # el mapa del Reel Senpai: captura del dashboard (corriendo en :5174) con Playwright
 ```
-El Reel Senpai se publicó sin música (se la agrega en Instagram).
-`npm run musica` necesita que la key tenga el permiso *Music Generation* (y un plan que lo incluya). Si no, se pueden
-dejar a mano pistas libres de derechos en `music/senpai-dubstep.mp3` y `music/senpai-house.mp3`; el script no pisa las
-que no generó. Sin pistas, sale sin música.
+La música del Reel Senpai va a mano en `music/liminal.mp3` (original o libre de derechos); sin el archivo, sale sin
+música.
 Los rastros de la escena 9 salen de `../data/gold`, que exporta el consumer: con `docker compose up` y partidas jugadas.
 
 ## Revisar

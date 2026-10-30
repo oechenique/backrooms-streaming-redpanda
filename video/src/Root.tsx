@@ -22,11 +22,11 @@ const metadataInsta = async () => {
   return { durationInFrames: frames.reduce((a, b) => a + b, 0), props: { bloques, frames, palabras: p } };
 };
 
-// El Reel Senpai: cada bloque dura su tramo de la voz (o sus cortes), más el aire entre bloques narrados.
+// El Reel Senpai: cada bloque dura lo que tarda en llegar el siguiente en la voz (o sus cortes, si no tiene voz).
 const metadataSenpai = async () => {
   const { bloques } = SENPAI;
   const tramos = await tramosSenpai();
-  const frames = bloques.map((b, i) => duracionSenpai(b, tramos[b.id]) + (b.voz && i < bloques.length - 1 ? Math.round(SENPAI.aire_s * FPS) : 0));
+  const frames = bloques.map((b) => duracionSenpai(b, tramos[b.id]));
   return { durationInFrames: frames.reduce((a, b) => a + b, 0), props: { bloques, frames, tramos } };
 };
 

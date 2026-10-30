@@ -4,7 +4,7 @@
 // Formato que se espera en el guion: cada escena del video es un "### N. Título" seguido de una línea "> texto";
 // el reel es la primera línea "> texto" después de "## Reel"; las de "## Reel Insta" van, en orden, a los bloques
 // narrados (los que tienen `texto`) de reel_insta. En "## Reel Senpai" cada bloque narrado es una línea "> voz: ..."
-// (como se pronuncia, con [pausa]).
+// (como se pronuncia).
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -83,7 +83,7 @@ export function sincronizar() {
     const voz = senpai[i];
     if (b.voz !== voz) cambios.push(b.id);
     b.voz = voz;
-    b.texto = voz.replace(/\s*\[pausa( larga)?\]/g, '');
+    b.texto = voz;
   });
   if (cambios.length) writeFileSync(escenasPath, JSON.stringify(data, null, 2) + '\n');
   return { data, cambios };

@@ -1,14 +1,15 @@
-// El reel de Senpai (@dev.tenshi) para Instagram (9:16): la variante calma del Reel Insta, con tomas largas y pausas,
-// sin subtítulos (el único texto propio es la tarjeta final con el link). La voz es un solo audio (audio/senpai.mp3)
-// que cada bloque toca por tramos, sin superponerse; los tramos y los tiempos de cada frase (para anclar cortes y bajar
-// la música) salen de audio/senpai-bloques.json (scripts/narrar-senpai.mjs). Los clips van sin su sonido salvo en el
-// gancho, que no tiene voz, para que no se mezcle nada con la de Senpai. Ningún texto del juego
-// queda cortado: las tomas con texto van con un recorte del cuadro horizontal que lo contiene entero, a todo el ancho y
-// sobre el mismo clip desenfocado. La música va por debajo de la voz y baja cuando ella habla. Los bloques, cortes y
-// pistas están en escenas.json (reel_senpai).
+// El reel de Senpai (@dev.tenshi) para Instagram (9:16): la variante calma del Reel Insta, con tomas largas, sin
+// subtítulos (el único texto propio es la tarjeta final con el link). La voz es una sola toma continua
+// (audio/senpai.mp3) que suena entera desde que termina el gancho: no se corta, y cada bloque dura lo que tarda en
+// llegar la primera frase del siguiente (audio/senpai-bloques.json, de scripts/narrar-senpai.mjs, que también da los
+// tiempos de cada frase para anclar cortes y bajar la música). Los clips van sin su sonido salvo en el gancho, que no
+// tiene voz. La música de fondo (music/<reel_senpai.musica.archivo>.mp3, si está) va durante todo el reel, por
+// debajo de la voz. Ningún texto del juego queda cortado: las tomas con texto van con un recorte del cuadro
+// horizontal que lo contiene entero, a todo el ancho y sobre el mismo clip desenfocado. Los bloques y cortes están en
+// escenas.json (reel_senpai).
 
 import { AbsoluteFill, Easing, Html5Audio, Html5Video, Img, interpolate, random, Sequence, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
-import { audioPath, clipPath, existe, FPS, musicPath, SENPAI, type BloqueSenpai, type ClipRef, type Marca, type Pista, type TramoSenpai, type Visual } from './medios';
+import { audioPath, clipPath, existe, FPS, musicPath, SENPAI, type BloqueSenpai, type ClipRef, type TramoSenpai, type Visual } from './medios';
 import { Placa } from './Narrado';
 import { Laberinto, Semillas } from './visuales/Laberinto';
 import { Pipeline } from './visuales/Pipeline';
@@ -25,7 +26,7 @@ const VOZ = audioPath('senpai');
 export interface ReelSenpaiProps extends Record<string, unknown> {
   bloques: BloqueSenpai[];
   frames: number[];
-  /** Tramo de la voz de cada bloque narrado (sin el json todavía, ninguno). */
+  /** Dónde cae cada bloque narrado en la voz (sin el json todavía, ninguno). */
   tramos: Record<string, TramoSenpai>;
 }
 
@@ -53,14 +54,12 @@ function iniciosCortes(bloque: BloqueSenpai, frames: number, tramo?: TramoSenpai
 
 export const ReelSenpai: React.FC<ReelSenpaiProps> = ({ bloques, frames, tramos }) => {
   const inicios = frames.map((_, i) => frames.slice(0, i).reduce((a, b) => a + b, 0));
-  const indice = (id: string) => bloques.findIndex((b) => b.id === id);
-  const marca = (m: Marca, fin: boolean) => {
-    const i = indice(m.bloque);
-    if (m.corte === undefined) return inicios[i] + (fin ? frames[i] : 0);
-    return inicios[i] + iniciosCortes(bloques[i], frames[i], tramos[m.bloque])[m.corte];
-  };
+  const total = frames.reduce((a, b) => a + b, 0);
+  // La voz arranca con el primer bloque narrado.
+  const primero = bloques.findIndex((b) => tramos[b.id]);
   // Cuándo habla (frames del reel), para bajar la música.
   const habla = bloques.flatMap((b, i) => (tramos[b.id]?.frases ?? []).map((f) => [inicios[i] + f.desde * FPS, inicios[i] + f.hasta * FPS] as const));
+  const musica = musicPath(SENPAI.musica.archivo);
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
       {bloques.map((b, i) => (
@@ -68,38 +67,35 @@ export const ReelSenpai: React.FC<ReelSenpaiProps> = ({ bloques, frames, tramos 
           <BloqueSenpai bloque={b} frames={frames[i]} tramo={tramos[b.id]} />
         </Sequence>
       ))}
-      {SENPAI.musica.map((p) => {
-        const desde = marca(p.desde, false);
-        const hasta = marca(p.hasta, true);
-        if (!existe(musicPath(p.archivo)) || hasta <= desde) return null;
-        return (
-          <Sequence key={p.id} from={desde} durationInFrames={hasta - desde} name={`música: ${p.id}`}>
-            <Musica pista={p} frames={hasta - desde} desde={desde} habla={habla} />
-          </Sequence>
-        );
-      })}
+      {primero >= 0 && existe(VOZ) && (
+        <Sequence from={inicios[primero]} name="voz">
+          <Html5Audio src={staticFile(VOZ)} />
+        </Sequence>
+      )}
+      {existe(musica) && <Html5Audio src={staticFile(musica)} loop volume={(f) => volumenMusica(f, total, habla)} />}
     </AbsoluteFill>
   );
 };
 
-/** Una pista: entra con un fundido, baja cuando habla Senpai y sale con un fundido (o en seco, si termina en un corte). */
-const Musica: React.FC<{ pista: Pista; frames: number; desde: number; habla: (readonly [number, number])[] }> = ({ pista, frames, desde, habla }) => {
-  const entra = 0.6 * FPS;
-  const sale = pista.hasta.corte === undefined ? 0.8 * FPS : 1;
-  const volumen = (f: number) => {
-    const t = desde + f;
-    // A 0,15 s de una frase ya está abajo; vuelve a subir de a poco.
-    const cerca = Math.min(...habla.map(([a, b]) => (t < a ? a - t : t > b ? t - b : 0)), Infinity);
-    const voz = interpolate(cerca, [0.15 * FPS, 0.5 * FPS], [0.4, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-    const bordes = Math.min(interpolate(f, [0, entra], [0, 1], { extrapolateRight: 'clamp' }), interpolate(f, [frames - sale, frames], [1, 0], { extrapolateLeft: 'clamp' }));
-    return pista.volumen * voz * bordes;
-  };
-  return <Html5Audio src={staticFile(musicPath(pista.archivo))} loop volume={volumen} />;
-};
+/**
+ * La música de fondo: `volumen` (unos 18 dB por debajo de la voz), `ducking_db` menos mientras habla Senpai (baja y
+ * sube de a poco alrededor de cada frase), y fundidos de entrada y de salida.
+ */
+function volumenMusica(f: number, total: number, habla: (readonly [number, number])[]): number {
+  const { volumen, ducking_db, entra_s, sale_s } = SENPAI.musica;
+  const cerca = Math.min(...habla.map(([a, b]) => (f < a ? a - f : f > b ? f - b : 0)), Infinity);
+  const db = interpolate(cerca, [0.1 * FPS, 0.6 * FPS], [-ducking_db, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const bordes = Math.min(
+    interpolate(f, [0, entra_s * FPS], [0, 1], { extrapolateRight: 'clamp' }),
+    interpolate(f, [total - sale_s * FPS, total], [1, 0], { extrapolateLeft: 'clamp' }),
+  );
+  return volumen * 10 ** (db / 20) * bordes;
+}
 
 const BloqueSenpai: React.FC<{ bloque: BloqueSenpai; frames: number; tramo?: TramoSenpai }> = ({ bloque, frames, tramo }) => {
   const inicios = iniciosCortes(bloque, frames, tramo);
-  const finVoz = tramo ? Math.round((tramo.hasta - tramo.desde) * FPS) : frames;
+  // Dónde termina la última frase del bloque (la voz no se corta: sigue sonando por debajo del reel).
+  const finVoz = tramo ? Math.round(tramo.frases[tramo.frases.length - 1].hasta * FPS) : frames;
   return (
     <AbsoluteFill>
       {bloque.cortes.map((c, i) => {
@@ -111,9 +107,6 @@ const BloqueSenpai: React.FC<{ bloque: BloqueSenpai; frames: number; tramo?: Tra
           </Sequence>
         );
       })}
-      {tramo && existe(VOZ) && (
-        <Html5Audio src={staticFile(VOZ)} trimBefore={Math.round(tramo.desde * FPS)} trimAfter={Math.round(tramo.hasta * FPS)} />
-      )}
       {bloque.apagar && <Apagon desde={finVoz} />}
       {bloque.link && (
         <Sequence from={finVoz + Math.round(0.45 * FPS)}>

@@ -85,28 +85,23 @@ export interface Item {
   apagar?: boolean;
 }
 
-/** Un bloque del Reel Senpai: `voz` es lo que se manda a ElevenLabs (como se pronuncia, con [pausa]); `texto`, lo mismo sin las pausas. */
+/** Un bloque del Reel Senpai: `voz` es lo que se manda a ElevenLabs (como se pronuncia); `texto`, lo mismo. */
 export interface BloqueSenpai extends Bloque {
   voz?: string;
   /** Al final, fundido a negro. */
   apagar?: boolean;
 }
 
-/** Dónde entra o sale una pista: al principio (o al final) de un bloque, o en uno de sus cortes. */
-export interface Marca {
-  bloque: string;
-  corte?: number;
-}
-
-export interface Pista {
-  id: string;
+/** La música de fondo del Reel Senpai: music/<archivo>.mp3, su volumen (lineal), el ducking y los fundidos (s). */
+export interface MusicaSenpai {
   archivo: string;
   volumen: number;
-  desde: Marca;
-  hasta: Marca;
+  ducking_db: number;
+  entra_s: number;
+  sale_s: number;
 }
 
-/** Tramo de audio/senpai.mp3 de cada bloque (s) y sus frases, relativas al tramo (scripts/narrar-senpai.mjs). */
+/** Dónde cae cada bloque en audio/senpai.mp3 (s) y sus frases, relativas al bloque (scripts/narrar-senpai.mjs). */
 export interface TramoSenpai {
   desde: number;
   hasta: number;
@@ -116,7 +111,7 @@ export interface TramoSenpai {
 export const VIDEO = data.video as Item[];
 export const REEL = data.reel as Item;
 export const INSTA = data.reel_insta as { link: string; aire_s: number; bloques: Bloque[] };
-export const SENPAI = data.reel_senpai as { link: string; aire_s: number; bloques: BloqueSenpai[]; musica: Pista[] };
+export const SENPAI = data.reel_senpai as { link: string; bloques: BloqueSenpai[]; musica: MusicaSenpai };
 export const MINIATURA = data.miniatura;
 /** Mundo de los visuales generados: la seed del día de las grabaciones (las partidas 0.5.0). */
 export const VISUALES = data.visuales;
@@ -177,10 +172,14 @@ export async function tramosSenpai(): Promise<Record<string, TramoSenpai>> {
   return (await fetch(staticFile(path))).json();
 }
 
-/** Frames de un bloque del Reel Senpai: su tramo de voz (o sus cortes), con su mínimo y su cola. */
+/**
+ * Frames de un bloque del Reel Senpai: lo que tarda en llegar el bloque siguiente en la voz (o sus cortes, si no tiene
+ * voz), más su cola. Se cuenta desde el frame absoluto de la voz para que los redondeos no se acumulen.
+ */
 export function duracionSenpai(b: BloqueSenpai, tramo?: TramoSenpai): number {
+  if (tramo) return Math.round(tramo.hasta * FPS) - Math.round(tramo.desde * FPS) + Math.round((b.cola_s ?? 0) * FPS);
   // Sin la voz todavía, se estima por palabras (~2,5 por segundo).
-  const voz = tramo ? tramo.hasta - tramo.desde : b.voz ? b.texto!.split(/\s+/).length / 2.5 : 0;
+  const voz = b.voz ? b.texto!.split(/\s+/).length / 2.5 : 0;
   const cortes = b.voz ? 0 : b.cortes.reduce((s, c) => s + (c.s ?? 1), 0);
   return Math.ceil(Math.max(voz + (b.cola_s ?? 0), cortes, b.min_s ?? 0) * FPS);
 }

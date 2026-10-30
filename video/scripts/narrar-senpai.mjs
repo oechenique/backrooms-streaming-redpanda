@@ -1,7 +1,7 @@
-// Narración del Reel Senpai: toda la voz sale de UN solo pedido a ElevenLabs con los tiempos de cada letra, con las
-// pausas metidas en el texto ([pausa] → <break>) y una pausa entre bloques. Después se corta por bloques con esos
-// tiempos: audio/senpai.mp3 queda entero y audio/senpai-bloques.json dice dónde empieza y termina cada bloque y cada
-// frase. Remotion toca cada bloque como un tramo del mp3 (los tramos no se pisan).
+// Narración del Reel Senpai: una sola toma continua, de UN solo pedido a ElevenLabs con los tiempos de cada letra; las
+// pausas son las naturales de la puntuación. El audio no se corta: audio/senpai.mp3 suena de punta a punta y es el video
+// el que se ajusta a la voz. audio/senpai-bloques.json dice, en segundos de la narración, dónde empieza y termina cada
+// bloque (de su primera frase a la primera del siguiente) y dónde cae cada frase, para anclar cortes y bajar la música.
 // Los textos salen de guion-backrooms.md ("## Reel Senpai"); la voz y sus ajustes, de reel_senpai.voz.
 // La key sale de video/.env (ELEVENLABS_API_KEY); nunca se imprime ni se escribe en otro lado.
 // Solo vuelve a pedir si cambió algún texto, la voz o los ajustes (audio/manifest.json, id "senpai").
@@ -23,25 +23,25 @@ const manifestPath = resolve(audioDir, 'manifest.json');
 const { voz, bloques } = data.reel_senpai;
 const hablados = bloques.filter((b) => b.voz);
 
-/** Frases de un texto (anclan cortes y bajan la música): corta en . ? ! y, si la frase es larga, también en las comas. */
+/** Frases de un texto (anclan cortes y bajan la música): corta en . ? ! y, si la frase es larga, también en , y :. */
 function frases(texto) {
   const out = [];
-  for (const f of texto.replace(/\s*\[pausa( larga)?\]/g, '').split(/(?<=[.?!])\s+/)) {
+  for (const f of texto.split(/(?<=[.?!])\s+/)) {
     if (f.split(/\s+/).length <= 8) {
       out.push(f);
       continue;
     }
-    // Se juntan las partes entre comas hasta tener unas cuatro palabras.
+    // Se juntan las partes entre comas (o dos puntos) hasta tener unas cuatro palabras.
     let actual = '';
-    for (const parte of f.split(/(?<=,)\s+/)) {
+    for (const parte of f.split(/(?<=[,:])\s+/)) {
       actual = actual ? `${actual} ${parte}` : parte;
       if (actual.split(/\s+/).length >= 4) {
         out.push(actual);
         actual = '';
       }
     }
-    // Lo que sobra al final va con la parte anterior.
-    if (actual) out.push(out.length ? `${out.pop()} ${actual}` : actual);
+    // Lo que sobra al final, si son una o dos palabras, va con la parte anterior.
+    if (actual) out.push(out.length && actual.split(/\s+/).length < 3 ? `${out.pop()} ${actual}` : actual);
   }
   return out.filter(Boolean);
 }
@@ -56,8 +56,7 @@ function readKey() {
   return null;
 }
 
-const pausas = (t) => t.replace(/\s*\[(pausa(?: larga)?)\]\s*/g, (_, p) => ` <break time="${voz.pausas[p]}s" /> `);
-const texto = hablados.map((b) => pausas(b.voz)).join(` <break time="${voz.entre_bloques_s}s" /> `);
+const texto = hablados.map((b) => b.voz).join(' ');
 
 mkdirSync(audioDir, { recursive: true });
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
@@ -90,7 +89,7 @@ if (!process.argv.includes('--forzar') && existsSync(mp3) && existsSync(alineaci
   console.log('✓ senpai → audio/senpai.mp3');
 }
 
-// El corte: cada frase de la voz se busca, en orden, en el texto que devolvió ElevenLabs con sus tiempos.
+// Los tiempos: cada frase de la voz se busca, en orden, en el texto que devolvió ElevenLabs.
 const a = JSON.parse(readFileSync(alineacionPath, 'utf8'));
 let unido = '';
 const letra = []; // posición en `unido` → índice en a.characters
@@ -109,20 +108,27 @@ for (const b of hablados) {
   });
   out[b.id] = { desde: fs[0].desde, hasta: fs[fs.length - 1].hasta, frases: fs };
 }
-// Cada bloque arranca un poco antes de su primera letra y termina un poco después de la última, sin pisar al siguiente.
+// Cada bloque arranca un poco antes de su primera letra (el primero, con la narración) y dura hasta que arranca el
+// siguiente; el último, hasta un poco después de su última letra. Así los bloques cubren la voz entera, sin huecos.
 const ids = Object.keys(out);
+const inicio = ids.map((id, k) => (k === 0 ? 0 : Math.max(out[ids[k - 1]].hasta, out[id].desde - 0.12)));
+const fin = inicio.slice(1).concat(out[ids[ids.length - 1]].hasta + 0.35);
+const huecos = [];
+let anterior = null;
 ids.forEach((id, k) => {
   const b = out[id];
-  const siguiente = out[ids[k + 1]]?.desde ?? Infinity;
-  const desde = Math.max(0, b.desde - 0.06);
-  const hasta = Math.min(b.hasta + 0.2, (b.hasta + siguiente) / 2);
+  for (const f of b.frases) {
+    if (anterior !== null) huecos.push({ id, s: f.desde - anterior });
+    anterior = f.hasta;
+  }
   out[id] = {
-    desde: +desde.toFixed(3),
-    hasta: +hasta.toFixed(3),
-    frases: b.frases.map((f) => ({ texto: f.texto, desde: +(f.desde - desde).toFixed(3), hasta: +(f.hasta - desde).toFixed(3) })),
+    desde: +inicio[k].toFixed(3),
+    hasta: +fin[k].toFixed(3),
+    frases: b.frases.map((f) => ({ texto: f.texto, desde: +(f.desde - inicio[k]).toFixed(3), hasta: +(f.hasta - inicio[k]).toFixed(3) })),
   };
 });
 writeFileSync(resolve(audioDir, 'senpai-bloques.json'), JSON.stringify(out, null, 2));
 for (const [id, b] of Object.entries(out)) console.log(`  ${id}: ${(b.hasta - b.desde).toFixed(2)} s, ${b.frases.length} frase(s)`);
-const total = Object.values(out).reduce((s, b) => s + b.hasta - b.desde, 0);
-console.log(`Voz: ${total.toFixed(1)} s en ${ids.length} bloques → audio/senpai-bloques.json`);
+const mayor = huecos.reduce((m, h) => (h.s > m.s ? h : m));
+console.log(`Voz: ${fin[fin.length - 1].toFixed(1)} s en ${ids.length} bloques → audio/senpai-bloques.json`);
+console.log(`Pausas entre frases: de ${Math.min(...huecos.map((h) => h.s)).toFixed(2)} a ${mayor.s.toFixed(2)} s (la mayor, en ${mayor.id}).`);

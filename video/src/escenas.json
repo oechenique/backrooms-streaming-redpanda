@@ -318,7 +318,6 @@
   },
   "reel_senpai": {
     "link": "lost-in-the-pipeline.vercel.app",
-    "aire_s": 0,
     "voz": {
       "voice_id": "oq8K6jJPiW08295EbH2y",
       "model_id": "eleven_multilingual_v2",
@@ -328,12 +327,7 @@
         "style": 0.1,
         "use_speaker_boost": true,
         "speed": 0.95
-      },
-      "pausas": {
-        "pausa": 0.6,
-        "pausa larga": 1.2
-      },
-      "entre_bloques_s": 1
+      }
     },
     "bloques": [
       {
@@ -364,7 +358,7 @@
       },
       {
         "id": "senpai-2-pasillo",
-        "voz": "me perdí en los backrooms. [pausa] otra vez.",
+        "voz": "me perdí en los backrooms. otra vez.",
         "texto": "me perdí en los backrooms. otra vez.",
         "cortes": [
           {
@@ -375,8 +369,8 @@
       },
       {
         "id": "senpai-3-caceria",
-        "voz": "acá hay una criatura que no ve. te escucha. si corrés, te encuentra.",
-        "texto": "acá hay una criatura que no ve. te escucha. si corrés, te encuentra.",
+        "voz": "acá hay una criatura que no ve. te escucha. si corres, te encuentra.",
+        "texto": "acá hay una criatura que no ve. te escucha. si corres, te encuentra.",
         "cortes": [
           {
             "clip": "02-caceria",
@@ -395,14 +389,14 @@
       },
       {
         "id": "senpai-4-persecucion",
-        "voz": "corrí. [pausa larga] me encontró. [pausa] normal, che.",
-        "texto": "corrí. me encontró. normal, che.",
+        "voz": "corrí. me encontró.",
+        "texto": "corrí. me encontró.",
         "cortes": [
           {
             "clip": "02-caceria",
-            "desde": 13,
+            "desde": 18.85,
             "encuadre": [
-              45,
+              72,
               50
             ]
           },
@@ -445,8 +439,8 @@
       },
       {
         "id": "senpai-6-datos",
-        "voz": "los datos dijeron que el juego era injusto. cien por ciento de capturas. [pausa] lo ajustamos, ¿viste? ahora se puede escapar. [pausa] a veces.",
-        "texto": "los datos dijeron que el juego era injusto. cien por ciento de capturas. lo ajustamos, ¿viste? ahora se puede escapar. a veces.",
+        "voz": "los datos dijeron que el juego era injusto: cien por ciento de capturas. lo ajustamos y ahora se puede escapar. a veces.",
+        "texto": "los datos dijeron que el juego era injusto: cien por ciento de capturas. lo ajustamos y ahora se puede escapar. a veces.",
         "cortes": [
           {
             "clip": "11-mapa",
@@ -464,8 +458,8 @@
       },
       {
         "id": "senpai-7-fantasma",
-        "voz": "ah, y una captura nunca llegó al páiplain. hasta los datos tienen fantasmas.",
-        "texto": "ah, y una captura nunca llegó al páiplain. hasta los datos tienen fantasmas.",
+        "voz": "lo raro es que una captura nunca llegó al páiplain. hasta los datos tienen fantasmas.",
+        "texto": "lo raro es que una captura nunca llegó al páiplain. hasta los datos tienen fantasmas.",
         "cortes": [
           {
             "clip": "03-captura",
@@ -483,63 +477,41 @@
       },
       {
         "id": "senpai-8-noclip",
-        "voz": "encontré una pared rota. la atravesé. [pausa] nivel uno. estacionamiento infinito. zona segura. [pausa] el juego es gratis. link en la bio.",
-        "texto": "encontré una pared rota. la atravesé. nivel uno. estacionamiento infinito. zona segura. el juego es gratis. link en la bio.",
+        "voz": "al final encontré una pared rota y noclipeé al nivel uno: los estacionamientos infinitos. zona segura.",
+        "texto": "al final encontré una pared rota y noclipeé al nivel uno: los estacionamientos infinitos. zona segura.",
         "cortes": [
           {
             "clip": "06-noclip",
-            "desde": 10.4
+            "desde": 10.2
           },
           {
             "clip": "07-estacionamiento",
             "desde": 1,
-            "en_frase": 3
+            "en_frase": 1
           }
         ]
       },
       {
         "id": "senpai-9-cierre",
-        "voz": "Mata né.",
-        "texto": "Mata né.",
+        "voz": "el juego es gratis. link en la bio.",
+        "texto": "el juego es gratis. link en la bio.",
         "apagar": true,
         "link": true,
         "cola_s": 1.7,
         "cortes": [
           {
             "clip": "07-estacionamiento",
-            "desde": 7.2
+            "desde": 6.5
           }
         ]
       }
     ],
-    "musica": [
-      {
-        "id": "dubstep",
-        "archivo": "senpai-dubstep",
-        "largo_s": 10,
-        "volumen": 0.2,
-        "desde": {
-          "bloque": "senpai-3-caceria"
-        },
-        "hasta": {
-          "bloque": "senpai-4-persecucion",
-          "corte": 1
-        },
-        "prompt": "Dark dubstep instrumental, 140 BPM, heavy wobble bass and tense build-up, horror chase energy, no vocals"
-      },
-      {
-        "id": "house",
-        "archivo": "senpai-house",
-        "largo_s": 20,
-        "volumen": 0.16,
-        "desde": {
-          "bloque": "senpai-5-pipeline"
-        },
-        "hasta": {
-          "bloque": "senpai-6-datos"
-        },
-        "prompt": "Chill deep house instrumental, 118 BPM, warm soft pads, mellow groove, relaxed and minimal, lo-fi warmth, no vocals"
-      }
-    ]
+    "musica": {
+      "archivo": "liminal",
+      "volumen": 0.055,
+      "ducking_db": 4,
+      "entra_s": 2.5,
+      "sale_s": 2
+    }
   }
 }

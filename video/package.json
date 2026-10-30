@@ -6,7 +6,6 @@
   "scripts": {
     "narrar": "node scripts/narrar.mjs",
     "narrar:senpai": "node scripts/narrar-senpai.mjs",
-    "musica": "node scripts/musica.mjs",
     "guion": "node scripts/guion.mjs",
     "preparar": "node scripts/preparar.mjs",
     "cortar": "node scripts/cortar.mjs",

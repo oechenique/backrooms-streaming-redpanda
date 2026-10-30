@@ -26,8 +26,8 @@ const ids = [...data.video.map((e) => e.id), data.reel.id, ...data.reel_insta.bl
 const faltanAudios = ids.filter((id) => !existsSync(resolve(root, 'audio', `${id}.mp3`)));
 if (faltanAudios.length) console.log(`Faltan narraciones (npm run narrar): ${faltanAudios.join(', ')}`);
 if (!existsSync(resolve(root, 'audio/senpai-bloques.json'))) console.log('Falta la voz del Reel Senpai (npm run narrar:senpai).');
-const faltanPistas = data.reel_senpai.musica.filter((m) => !existsSync(resolve(root, 'music', `${m.archivo}.mp3`)));
-if (faltanPistas.length) console.log(`Faltan pistas del Reel Senpai (npm run musica, o libres de derechos a mano): ${faltanPistas.map((m) => `music/${m.archivo}.mp3`).join(', ')}`);
+const fondo = `music/${data.reel_senpai.musica.archivo}.mp3`;
+if (!existsSync(resolve(root, fondo))) console.log(`Falta la música del Reel Senpai (${fondo}, original o libre de derechos): sale sin música.`);
 
 function isLink(p) {
   try {
